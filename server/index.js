@@ -1,0 +1,251 @@
+import 'dotenv/config'
+import express from 'express'
+import cors from 'cors'
+import {
+  createGame,
+  chooseEngineMove,
+  destroyGame,
+  getGame,
+  reviewGame,
+  serialize,
+  shutdown,
+  MIN_KYU,
+  MAX_KYU,
+} from './games.js'
+import { explainMistakes } from './coach.js'
+
+const app = express()
+app.use(cors())
+app.use(express.json())
+
+const PORT = process.env.PORT || 3001
+
+/** Wrap async handlers so rejections become 500s instead of hanging. */
+const route = (fn) => (req, res) => {
+  Promise.resolve(fn(req, res)).catch((err) => {
+    console.error(`${req.method} ${req.path} failed:`, err.message)
+    if (!res.headersSent) res.status(500).json({ error: err.message })
+  })
+}
+
+/** Load a game or send 404/409. Returns null when it has already responded. */
+function requireGame(req, res, { mustBeLive = true } = {}) {
+  const game = getGame(req.params.id)
+  if (!game) {
+    res.status(404).json({ error: 'Game not found' })
+    return null
+  }
+  if (mustBeLive && game.over) {
+    res.status(409).json({ error: 'Game is already over' })
+    return null
+  }
+  return game
+}
+
+/**
+ * Ask the engine for its reply and fold the outcome into the game.
+ * Handles the two non-move answers GNU Go can give: pass and resign.
+ */
+async function playEngineReply(game) {
+  const reply = await chooseEngineMove(game, game.aiColor)
+
+  if (reply.resign) {
+    game.over = true
+    game.result = { winner: game.humanColor, reason: 'resignation' }
+    game.moves.push({ color: game.aiColor, resign: true })
+    return reply
+  }
+
+  if (reply.pass) {
+    game.consecutivePasses += 1
+    game.moves.push({ color: game.aiColor, pass: true })
+  } else {
+    game.consecutivePasses = 0
+    game.moves.push({ color: game.aiColor, y: reply.y, x: reply.x })
+  }
+
+  if (game.consecutivePasses >= 2) await finish(game)
+  return reply
+}
+
+/** Two passes end the game; ask GNU Go to score it. */
+async function finish(game) {
+  game.over = true
+  const score = await game.engine.finalScore() // e.g. "W+12.5"
+  const [side, margin] = score.split('+')
+  game.result = {
+    winner: side?.toUpperCase() === 'B' ? 'black' : 'white',
+    margin: Number.parseFloat(margin),
+    score,
+    reason: 'score',
+  }
+}
+
+app.get('/api/health', (_req, res) => res.json({ ok: true }))
+
+app.post(
+  '/api/games',
+  route(async (req, res) => {
+    const { targetKyu = 20, boardSize = 9, humanColor = 'black' } = req.body ?? {}
+    if (typeof targetKyu !== 'number' || Number.isNaN(targetKyu)) {
+      return res.status(400).json({ error: 'targetKyu must be a number' })
+    }
+    if (targetKyu < MIN_KYU || targetKyu > MAX_KYU) {
+      return res.status(400).json({ error: `targetKyu must be ${MIN_KYU}-${MAX_KYU}` })
+    }
+    if (humanColor !== 'black' && humanColor !== 'white') {
+      return res.status(400).json({ error: 'humanColor must be black or white' })
+    }
+
+    // Always an even game now: difficulty comes from how the engine plays,
+    // not from stones on the board before anyone has moved.
+    const game = await createGame({ targetKyu, boardSize, humanColor })
+
+    // Black always moves first, so when the human takes white the engine opens.
+    const firstMove = game.aiColor === 'black' ? await playEngineReply(game) : null
+
+    res.status(201).json({ ...serialize(game), firstMove })
+  }),
+)
+
+app.get(
+  '/api/games/:id',
+  route((req, res) => {
+    const game = requireGame(req, res, { mustBeLive: false })
+    if (game) res.json(serialize(game))
+  }),
+)
+
+app.post(
+  '/api/games/:id/move',
+  route(async (req, res) => {
+    const game = requireGame(req, res)
+    if (!game) return
+
+    const { y, x } = req.body ?? {}
+    if (!Number.isInteger(y) || !Number.isInteger(x)) {
+      return res.status(400).json({ error: 'y and x must be integers' })
+    }
+    if (y < 0 || x < 0 || y >= game.boardSize || x >= game.boardSize) {
+      return res.status(400).json({ error: 'Move is off the board' })
+    }
+
+    try {
+      await game.engine.play(game.humanColor, y, x)
+    } catch (err) {
+      // GNU Go rejects illegal moves (occupied, suicide, ko).
+      return res.status(422).json({ error: err.message || 'Illegal move' })
+    }
+
+    game.consecutivePasses = 0
+    game.moves.push({ color: game.humanColor, y, x })
+
+    const reply = await playEngineReply(game)
+    res.json({ ai: reply, game: serialize(game) })
+  }),
+)
+
+app.post(
+  '/api/games/:id/pass',
+  route(async (req, res) => {
+    const game = requireGame(req, res)
+    if (!game) return
+
+    await game.engine.pass(game.humanColor)
+    game.consecutivePasses += 1
+    game.moves.push({ color: game.humanColor, pass: true })
+
+    if (game.consecutivePasses >= 2) {
+      await finish(game)
+      return res.json({ ai: null, game: serialize(game) })
+    }
+
+    const reply = await playEngineReply(game)
+    res.json({ ai: reply, game: serialize(game) })
+  }),
+)
+
+app.get(
+  '/api/games/:id/hint',
+  route(async (req, res) => {
+    const game = requireGame(req, res)
+    if (!game) return
+
+    // The engine's own ranked candidates for the player's colour.
+    const candidates = await game.engine.topMoves(game.humanColor)
+    res.json({
+      color: game.humanColor,
+      moveNumber: game.moves.length,
+      best: candidates[0] ?? null,
+      alternatives: candidates.slice(1, 3),
+    })
+  }),
+)
+
+app.post(
+  '/api/games/:id/review',
+  route(async (req, res) => {
+    const game = requireGame(req, res, { mustBeLive: false })
+    if (!game) return
+    if (!game.over) {
+      return res.status(409).json({ error: 'Game is still in progress' })
+    }
+    res.json(await reviewGame(game))
+  }),
+)
+
+app.post(
+  '/api/games/:id/coach',
+  route(async (req, res) => {
+    const game = requireGame(req, res, { mustBeLive: false })
+    if (!game) return
+    if (!game.over) {
+      return res.status(409).json({ error: 'Game is still in progress' })
+    }
+
+    const { mistakes } = req.body ?? {}
+    if (!Array.isArray(mistakes)) {
+      return res.status(400).json({ error: 'mistakes must be an array' })
+    }
+
+    const notes = await explainMistakes({
+      boardSize: game.boardSize,
+      humanColor: game.humanColor,
+      moves: game.moves,
+      mistakes,
+    })
+    res.json({ notes })
+  }),
+)
+
+app.post(
+  '/api/games/:id/resign',
+  route(async (req, res) => {
+    const game = requireGame(req, res)
+    if (!game) return
+
+    game.over = true
+    game.result = { winner: game.aiColor, reason: 'resignation' }
+    res.json({ game: serialize(game) })
+  }),
+)
+
+app.delete(
+  '/api/games/:id',
+  route(async (req, res) => {
+    const existed = await destroyGame(req.params.id)
+    res.status(existed ? 204 : 404).end()
+  }),
+)
+
+const server = app.listen(PORT, () => {
+  console.log(`Go server listening on http://localhost:${PORT}`)
+})
+
+for (const signal of ['SIGINT', 'SIGTERM']) {
+  process.on(signal, async () => {
+    server.close()
+    await shutdown()
+    process.exit(0)
+  })
+}
