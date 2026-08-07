@@ -15,6 +15,10 @@ FROM node:20-bookworm-slim
 RUN apt-get update \
   && apt-get install -y --no-install-recommends gnugo \
   && rm -rf /var/lib/apt/lists/*
+# Debian installs game packages to /usr/games, which isn't on the default
+# PATH for a non-interactive process (only for login shells) — without this,
+# Node's spawn('gnugo', ...) in server/gtp.js fails with ENOENT.
+ENV PATH="/usr/games:${PATH}"
 WORKDIR /app
 COPY server/package.json server/package-lock.json ./server/
 RUN npm --prefix server ci --omit=dev
