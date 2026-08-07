@@ -140,6 +140,13 @@ function performanceForAverageLoss(averageLoss) {
 }
 
 export async function reviewGame(game) {
+  // A finished game's moves never change, so the analysis is deterministic —
+  // cache it on the (in-memory, per-game) object rather than re-spawning a
+  // GNU Go subprocess and redoing the full replay on every call. The cache
+  // rides along with the game's own lifecycle (cleared when it's destroyed
+  // or swept for inactivity), so there's nothing extra to invalidate.
+  if (game._reviewCache) return game._reviewCache
+
   const engine = new GtpEngine({
     level: ENGINE_LEVEL,
     boardSize: game.boardSize,
@@ -188,13 +195,14 @@ export async function reviewGame(game) {
 
     const averageLoss = humanMoveCount > 0 ? Math.round((totalLoss / humanMoveCount) * 10) / 10 : 0
 
-    return {
+    game._reviewCache = {
       analysed: moves.length,
       truncated: game.moves.length > REVIEW_MOVE_CAP,
       mistakes,
       moveMarks,
       performance: { averageLoss, ...performanceForAverageLoss(averageLoss) },
     }
+    return game._reviewCache
   } finally {
     await engine.quit().catch(() => {})
   }

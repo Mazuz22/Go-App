@@ -210,6 +210,26 @@ app.post(
     if (!Array.isArray(mistakes)) {
       return res.status(400).json({ error: 'mistakes must be an array' })
     }
+    // This is a public endpoint that feeds straight into a GTP coordinate
+    // string and a Claude prompt, so validate shape before either sees it —
+    // capped well above the 3 entries a legitimate client ever sends.
+    if (mistakes.length > 10) {
+      return res.status(400).json({ error: 'mistakes must have at most 10 entries' })
+    }
+    const isValidMistake = (m) =>
+      m &&
+      Number.isInteger(m.moveNumber) &&
+      m.moveNumber > 0 &&
+      Number.isInteger(m.y) &&
+      m.y >= 0 &&
+      m.y < game.boardSize &&
+      Number.isInteger(m.x) &&
+      m.x >= 0 &&
+      m.x < game.boardSize &&
+      Number.isFinite(m.lost)
+    if (!mistakes.every(isValidMistake)) {
+      return res.status(400).json({ error: 'each mistake needs a valid moveNumber, y, x, and lost' })
+    }
 
     const notes = await explainMistakes({
       boardSize: game.boardSize,

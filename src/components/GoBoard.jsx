@@ -259,13 +259,13 @@ export default function GoBoard({
 
             {/* tenuki has no public API for arbitrary board marks, so they're
                 drawn as an overlay using the same intersection geometry as
-                the crosshair. Colour flips against whatever sits underneath. */}
+                the crosshair. Colour comes from `tone`, not from what's
+                underneath, so it stays legible on stone, wood, or empty. */}
             {marks.map(({ type = 'triangle', y, x, tone }) => (
               <Mark
                 key={`${y},${x}`}
                 type={type}
                 tone={tone}
-                onStone={gameRef.current?.intersectionAt(y, x)?.value}
                 style={pointStyle(y, x)}
               />
             ))}
@@ -296,7 +296,7 @@ const QUALITY_COLORS = {
   blunder: '#f87171',
 }
 
-function Mark({ type, onStone, style, tone = 'auto' }) {
+function Mark({ type, style, tone = 'auto' }) {
   // A suggestion is the app talking, so it takes the accent colour and gets a
   // halo — a thin dark ring on dark wood is close to invisible. Teaching marks
   // get their own blue gradient instead, readable on stone, wood, or empty

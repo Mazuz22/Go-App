@@ -45,6 +45,9 @@ export default function PlayAI({ onExit, rank, onRankChange }) {
   const [error, setError] = useState(null)
   const [result, setResult] = useState(null)
   const [ratingChange, setRatingChange] = useState(null)
+  // Fetched once, silently, for the rating calc above — handed to GameOver
+  // so "Review my mistakes" doesn't re-run the same GNU Go analysis.
+  const [review, setReview] = useState(null)
   const [starting, setStarting] = useState(false)
   const [turn, setTurn] = useState('black')
   const [clocks, setClocks] = useState(null)
@@ -109,8 +112,9 @@ export default function PlayAI({ onExit, rank, onRankChange }) {
     ;(async () => {
       let averageLoss = null
       try {
-        const review = await api.reviewGame(gameId)
-        averageLoss = review.performance?.averageLoss ?? null
+        const reviewData = await api.reviewGame(gameId)
+        if (!cancelled) setReview(reviewData)
+        averageLoss = reviewData.performance?.averageLoss ?? null
       } catch {
         // Rating still updates on win/loss alone if this fails.
       }
@@ -396,11 +400,13 @@ export default function PlayAI({ onExit, rank, onRankChange }) {
         gameId={gameId}
         moves={moves}
         ratingChange={ratingChange}
+        precomputedReview={review}
         boardSize={format.boardSize}
         onHome={onExit}
         onRematch={() => {
           setResult(null)
           setRatingChange(null)
+          setReview(null)
           rankUpdatedRef.current = false
           setRemark(null)
           setError(null)

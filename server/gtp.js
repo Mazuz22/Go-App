@@ -48,7 +48,17 @@ export class GtpEngine {
 
     this.proc.stdout.on('data', (chunk) => this._consume(chunk))
     this.proc.on('exit', (code) => this._failAll(new Error(`GNU Go exited (${code})`)))
-    this.proc.on('error', (err) => this._failAll(err))
+    this.proc.on('error', (err) => {
+      // The raw Node error ("spawn gnugo ENOENT") is meaningless to a player
+      // and to anyone debugging without shell access to the server — log the
+      // original for that, surface something actionable to callers.
+      console.error('GTP engine failed to start:', err)
+      const message =
+        err.code === 'ENOENT'
+          ? `Go engine ('${binary}') isn't installed or isn't on PATH on this server.`
+          : `Go engine failed to start (${err.code ?? err.message}).`
+      this._failAll(new Error(message))
+    })
     // GNU Go chats on stderr; keep it off the app's console.
     this.proc.stderr.resume()
   }
@@ -75,6 +85,11 @@ export class GtpEngine {
 
   _failAll(err) {
     this.closed = true
+    // A spawn error can land before any send() has queued a waiter (it's
+    // emitted asynchronously, so the race can go either way) — remember why,
+    // so a send() that comes in afterward rejects with the real reason
+    // instead of a generic "Engine is closed".
+    this._closedReason = err
     const waiting = this._pending.splice(0)
     waiting.forEach(({ reject, timer }) => {
       clearTimeout(timer)
@@ -83,7 +98,7 @@ export class GtpEngine {
   }
 
   send(command, { timeout = DEFAULT_TIMEOUT_MS } = {}) {
-    if (this.closed) return Promise.reject(new Error('Engine is closed'))
+    if (this.closed) return Promise.reject(this._closedReason ?? new Error('Engine is closed'))
 
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {

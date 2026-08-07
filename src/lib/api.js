@@ -7,6 +7,11 @@
 
 const BASE = `${import.meta.env.VITE_API_BASE ?? ''}/api`
 
+// A free-tier host can take 30-50s to wake up from an idle spin-down, so the
+// timeout has to be generous enough not to fire on a merely-slow cold start —
+// this is about catching a genuinely hung connection, not typical latency.
+const TIMEOUT_MS = 45_000
+
 /** Raised for non-2xx responses so callers can read `status` and message. */
 export class ApiError extends Error {
   constructor(message, status) {
@@ -17,15 +22,27 @@ export class ApiError extends Error {
 }
 
 async function request(path, { method = 'GET', body } = {}) {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
+
   let response
   try {
     response = await fetch(`${BASE}${path}`, {
       method,
       headers: body ? { 'Content-Type': 'application/json' } : undefined,
       body: body ? JSON.stringify(body) : undefined,
+      signal: controller.signal,
     })
-  } catch {
+  } catch (err) {
+    if (err.name === 'AbortError') {
+      throw new ApiError(
+        "The server is taking a while to respond — if it's been idle, it can take up to a minute to wake up. Try again in a moment.",
+        0,
+      )
+    }
     throw new ApiError('Could not reach the game server.', 0)
+  } finally {
+    clearTimeout(timer)
   }
 
   if (response.status === 204) return null

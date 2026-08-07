@@ -23,6 +23,7 @@ export default function GameOver({
   gameId,
   moves = [],
   ratingChange,
+  precomputedReview = null,
   boardSize = 9,
   onRematch,
   onHome,
@@ -35,7 +36,13 @@ export default function GameOver({
   const [coaching, setCoaching] = useState(false)
   const [coachError, setCoachError] = useState(null)
 
+  // PlayAI already runs this same GNU Go analysis once, silently, for the
+  // rating calculation — reuse it instead of paying for it twice.
   const runReview = async () => {
+    if (precomputedReview) {
+      setReview(precomputedReview)
+      return
+    }
     setReviewing(true)
     setReviewError(null)
     try {
