@@ -1,4 +1,7 @@
 import 'dotenv/config'
+import { existsSync } from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import express from 'express'
 import cors from 'cors'
 import {
@@ -237,6 +240,20 @@ app.delete(
     res.status(existed ? 204 : 404).end()
   }),
 )
+
+// Single-service deploy: when a built frontend sits next to the server (see
+// the Dockerfile), serve it directly instead of standing up a second static
+// host. In local dev there's no dist/ yet — Vite's own dev server handles
+// the frontend then, and this whole block is a no-op.
+const distPath = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'dist')
+if (existsSync(distPath)) {
+  app.use(express.static(distPath))
+  // Anything that isn't an API route is a client-side route — hand it the
+  // SPA shell and let React Router-less `App.jsx` sort out the screen.
+  app.get(/^(?!\/api).*/, (_req, res) => {
+    res.sendFile(path.join(distPath, 'index.html'))
+  })
+}
 
 const server = app.listen(PORT, () => {
   console.log(`Go server listening on http://localhost:${PORT}`)
