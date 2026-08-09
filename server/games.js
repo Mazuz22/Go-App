@@ -139,6 +139,31 @@ function performanceForAverageLoss(averageLoss) {
   return { tier: 'rough', label: 'Rough — worth reviewing where it went wrong.' }
 }
 
+/**
+ * The per-move estimate trace can genuinely miss a loss: a group that reads
+ * as fine turn by turn (to GNU Go's static estimator) and then turns out to
+ * have been dead the whole time collapses all at once, on a move that isn't
+ * the human's own and so is never scored against them. Without this, a game
+ * lost by a wide margin that way grades as "Excellent" — technically true of
+ * the per-move numbers, and misleading about the game. This folds the actual
+ * result in: a lopsided loss the move trace didn't see coming overrides the
+ * average-loss verdict instead of silently disagreeing with it.
+ */
+function applyResultContext(perf, { game, averageLoss }) {
+  const result = game.result
+  if (!result || result.reason !== 'score' || typeof result.margin !== 'number') return perf
+  if (result.winner === game.humanColor) return perf
+
+  const boardPoints = game.boardSize * game.boardSize
+  const marginFraction = result.margin / boardPoints
+  if (marginFraction < 0.15 || averageLoss >= 2) return perf
+
+  return {
+    tier: 'rough',
+    label: `Lost by ${result.margin} points — no single move stands out, but the position was likely difficult well before the score caught up to it.`,
+  }
+}
+
 export async function reviewGame(game) {
   // A finished game's moves never change, so the analysis is deterministic —
   // cache it on the (in-memory, per-game) object rather than re-spawning a
@@ -194,13 +219,17 @@ export async function reviewGame(game) {
       .slice(0, 3)
 
     const averageLoss = humanMoveCount > 0 ? Math.round((totalLoss / humanMoveCount) * 10) / 10 : 0
+    const performance = {
+      averageLoss,
+      ...applyResultContext(performanceForAverageLoss(averageLoss), { game, averageLoss }),
+    }
 
     game._reviewCache = {
       analysed: moves.length,
       truncated: game.moves.length > REVIEW_MOVE_CAP,
       mistakes,
       moveMarks,
-      performance: { averageLoss, ...performanceForAverageLoss(averageLoss) },
+      performance,
     }
     return game._reviewCache
   } finally {
