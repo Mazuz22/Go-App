@@ -3,6 +3,12 @@ import Logo from './Logo'
 import ReviewReplay from './ReviewReplay'
 import * as api from '../lib/api'
 import { formatRank } from '../lib/rank'
+import { useCountUp } from '../lib/useCountUp'
+
+const COUNT_DURATION_MS = 900
+// A short beat after the count settles, before the win/lose reveal — long
+// enough to register as a pause, not so long it drags.
+const COUNT_SETTLE_MS = 200
 
 /**
  * End-of-game screen.
@@ -69,14 +75,30 @@ export default function GameOver({
     }
   }
 
-  // Staged reveal: outcome, then the detail, then the actions.
+  // A scored ending has territory to tally, so count it out before revealing
+  // who won — the win/lose headline lands right as the count settles, rather
+  // than sitting there while the numbers are still climbing toward it.
+  const isScored = Boolean(result.score)
+  const blackCount = useCountUp(isScored ? result.score.black : 0, {
+    duration: COUNT_DURATION_MS,
+    active: isScored,
+  })
+  const whiteCount = useCountUp(isScored ? result.score.white : 0, {
+    duration: COUNT_DURATION_MS,
+    active: isScored,
+  })
+
+  // Staged reveal: outcome, then the detail, then the actions — delayed to
+  // start after the count above finishes, when there is one.
   useEffect(() => {
+    const base = isScored ? COUNT_DURATION_MS + COUNT_SETTLE_MS : 0
     const timers = [
-      setTimeout(() => setStep(1), 260),
-      setTimeout(() => setStep(2), 720),
-      setTimeout(() => setStep(3), 1100),
+      setTimeout(() => setStep(1), base + 260),
+      setTimeout(() => setStep(2), base + 720),
+      setTimeout(() => setStep(3), base + 1100),
     ]
     return () => timers.forEach(clearTimeout)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const won = result.winner === humanColor
@@ -86,6 +108,20 @@ export default function GameOver({
     <div className={`game-over ${won ? 'won' : 'lost'}`}>
       <div className="game-over-inner">
         <Logo size="md" className="game-over-mark" />
+
+        {isScored && (
+          <div className="game-over-score counting">
+            <div className="game-over-score-side">
+              <span className="game-over-score-label">Black</span>
+              <span className="game-over-score-value">{blackCount}</span>
+            </div>
+            <div className="game-over-score-divider" />
+            <div className="game-over-score-side">
+              <span className="game-over-score-label">White</span>
+              <span className="game-over-score-value">{whiteCount}</span>
+            </div>
+          </div>
+        )}
 
         <div className={`game-over-stone ${result.winner}${step >= 1 ? ' in' : ''}`} aria-hidden="true" />
 
@@ -97,20 +133,6 @@ export default function GameOver({
           {winnerLabel} wins {REASON_TEXT[result.reason] ?? ''}
           {result.detail ? ` · ${result.detail}` : ''}
         </p>
-
-        {result.score && (
-          <div className={`game-over-score${step >= 2 ? ' in' : ''}`}>
-            <div className="game-over-score-side">
-              <span className="game-over-score-label">Black</span>
-              <span className="game-over-score-value">{result.score.black}</span>
-            </div>
-            <div className="game-over-score-divider" />
-            <div className="game-over-score-side">
-              <span className="game-over-score-label">White</span>
-              <span className="game-over-score-value">{result.score.white}</span>
-            </div>
-          </div>
-        )}
 
         {ratingChange && (
           <div className={`game-over-rating${step >= 2 ? ' in' : ''}`}>

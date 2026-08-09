@@ -384,7 +384,6 @@ body {
 
 .game-over-headline,
 .game-over-reason,
-.game-over-score,
 .game-over-rating,
 .game-over-actions {
   opacity: 0;
@@ -394,7 +393,6 @@ body {
 
 .game-over-headline.in,
 .game-over-reason.in,
-.game-over-score.in,
 .game-over-rating.in,
 .game-over-actions.in {
   opacity: 1;
@@ -419,15 +417,19 @@ body {
   color: var(--text-muted);
 }
 
+/* Appears immediately (no JS-timed `.in` gate like its siblings below) and
+   counts up on its own via useCountUp — the win/lose reveal waits for it,
+   rather than the two animating on independent, unrelated schedules. */
 .game-over-score {
   display: flex;
   align-items: stretch;
   gap: 20px;
-  margin-top: 26px;
+  margin: 0 0 24px;
   padding: 16px 24px;
   background: var(--card-bg);
   border: 1px solid var(--card-border);
   border-radius: 12px;
+  animation: rise-in 0.4s var(--ease-out) backwards;
 }
 
 .game-over-score-side {
@@ -510,6 +512,7 @@ body {
   .game-over-rating,
   .game-over-actions {
     transition: none;
+    animation: none;
     opacity: 1;
     transform: none;
   }
