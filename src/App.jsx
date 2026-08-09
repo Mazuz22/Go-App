@@ -68,11 +68,9 @@ export default function App() {
       default:
         return (
           <Home
-            rank={rank}
             // Without a rank we can't set the opponent's level, so assess first.
             onPlay={() => setScreen(rank ? 'ai' : 'assess')}
             onPlayModes={() => setScreen('play-menu')}
-            onReassess={() => setScreen('assess')}
           />
         )
     }
