@@ -1,7 +1,7 @@
 import Logo from './Logo'
 import { formatRank } from '../lib/rank'
 
-export default function Home({ rank, onPlay, onHowToPlay, onReassess }) {
+export default function Home({ rank, onPlay, onPlayModes, onReassess }) {
   return (
     <div className="home stagger">
       <div className="home-hero">
@@ -22,8 +22,8 @@ export default function Home({ rank, onPlay, onHowToPlay, onReassess }) {
         <button type="button" className="primary-button" onClick={onPlay}>
           Play
         </button>
-        <button type="button" className="ghost-button" onClick={onHowToPlay}>
-          How to play
+        <button type="button" className="ghost-button" onClick={onPlayModes}>
+          Play modes
         </button>
       </div>
     </div>

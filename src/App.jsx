@@ -41,7 +41,7 @@ export default function App() {
               setLessonIndex(i)
               setScreen('tutorial')
             }}
-            onExit={() => setScreen('home')}
+            onExit={() => setScreen('play-menu')}
           />
         )
       case 'tutorial':
@@ -49,16 +49,16 @@ export default function App() {
       case 'play-menu':
         return (
           <PlayMenu
-            // Without a rank we can't set the opponent's level, so assess first.
-            onPlayAI={() => setScreen(rank ? 'ai' : 'assess')}
             onPuzzles={() => setScreen('puzzles')}
             onFreePlay={() => setScreen('play')}
+            onLessons={() => setScreen('lessons')}
             onExit={() => setScreen('home')}
           />
         )
       case 'puzzles':
         return <Puzzles onExit={() => setScreen('play-menu')} />
-      // PlayAI runs its own pre-game flow: board size, then nigiri.
+      // PlayAI runs its own single-screen pre-game flow (board size only —
+      // colour and, by default, opponent strength are automatic).
       case 'ai':
         return rank ? (
           <PlayAI rank={rank} onRankChange={applyRank} onExit={() => setScreen('home')} />
@@ -69,8 +69,9 @@ export default function App() {
         return (
           <Home
             rank={rank}
-            onPlay={() => setScreen('play-menu')}
-            onHowToPlay={() => setScreen('lessons')}
+            // Without a rank we can't set the opponent's level, so assess first.
+            onPlay={() => setScreen(rank ? 'ai' : 'assess')}
+            onPlayModes={() => setScreen('play-menu')}
             onReassess={() => setScreen('assess')}
           />
         )

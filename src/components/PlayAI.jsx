@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react'
 import GoBoard from './GoBoard'
 import GameOver from './GameOver'
 import Logo from './Logo'
-import Nigiri from './Nigiri'
 import { HintIcon, PassIcon } from './icons'
 import * as api from '../lib/api'
 import { commentOn } from '../lib/commentary'
@@ -11,7 +10,8 @@ import { formatRank, AI_LEVELS, aiLevelForKyu, updateRatingAfterGame, MIN_KYU, M
 
 // No handicap: every game starts from an empty board and the engine is
 // weakened by how it plays (see server/games.js), not by stones given away.
-// Colours come from nigiri, so the human is not always black.
+// Colour is assigned by a coin flip rather than the traditional nigiri
+// ritual — the point here is getting to the first move fast, not ceremony.
 
 /**
  * Board size is really a choice about how long you want to sit down for, so
@@ -27,14 +27,15 @@ const FORMATS = [
 ]
 
 export default function PlayAI({ onExit, rank, onRankChange }) {
-  // Pre-game order: choose the board, then the opponent's exact strength,
-  // then decide colours by nigiri, then the game is created — the ritual
-  // belongs immediately before play begins.
+  // Pre-game is a single screen: pick a board size and the game starts
+  // immediately, matched to your own rating and a randomly assigned colour.
+  // Opponent strength is adjustable there too, but as an optional disclosure
+  // rather than a step you have to pass through.
   const [format, setFormat] = useState(null)
   // Defaults to the player's own live rating, so doing nothing at all means
   // "match me automatically" — dragging it is an explicit, deliberate choice.
   const [targetKyu, setTargetKyu] = useState(rank.kyu)
-  const [strengthConfirmed, setStrengthConfirmed] = useState(false)
+  const [showStrength, setShowStrength] = useState(false)
   const [humanColor, setHumanColor] = useState(null)
   const aiColor = humanColor === 'black' ? 'white' : 'black'
   const [started, setStarted] = useState(false)
@@ -150,15 +151,20 @@ export default function PlayAI({ onExit, rank, onRankChange }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [result])
 
-  /** Called once nigiri has settled colours; creates the game and begins. */
-  const start = async (color) => {
+  /**
+   * Creates the game and begins. Takes the chosen format directly rather
+   * than reading it back from state, since it's called in the same tap that
+   * sets it — state wouldn't have committed yet.
+   */
+  const start = async (color, chosenFormat) => {
     setStarting(true)
     setError(null)
     setHumanColor(color)
+    setFormat(chosenFormat)
     try {
       const game = await api.createGame({
         targetKyu,
-        boardSize: format.boardSize,
+        boardSize: chosenFormat.boardSize,
         humanColor: color,
       })
       setGameId(game.id)
@@ -167,8 +173,8 @@ export default function PlayAI({ onExit, rank, onRankChange }) {
       setOpeningMove(game.firstMove ?? null)
       // Untimed formats pass no clocks, so the bars fall back to a turn badge.
       setClocks(
-        format.minutes
-          ? { black: format.minutes * 60, white: format.minutes * 60 }
+        chosenFormat.minutes
+          ? { black: chosenFormat.minutes * 60, white: chosenFormat.minutes * 60 }
           : null,
       )
       setStarted(true)
@@ -281,8 +287,19 @@ export default function PlayAI({ onExit, rank, onRankChange }) {
   }, [turn])
 
 
-  // Step 1: pick the board.
-  if (!format) {
+  // Pre-game: one screen. Tapping a board size starts the game immediately —
+  // opponent strength defaults to an automatic match against the player's
+  // own live rating, and colour is assigned by a coin flip, so doing nothing
+  // but picking a board is the entire decision most people need to make.
+  if (!started) {
+    const opponentLevel = AI_LEVELS[aiLevelForKyu(targetKyu)]
+    const isMatched = Math.abs(targetKyu - rank.kyu) < 0.05
+
+    const startQuickGame = (option) => {
+      const color = Math.random() < 0.5 ? 'black' : 'white'
+      start(color, option)
+    }
+
     return (
       <div className="level-select">
         <header className="tutorial-header">
@@ -290,15 +307,15 @@ export default function PlayAI({ onExit, rank, onRankChange }) {
             ← Home
           </button>
           <span className="tutorial-progress">
-            {formatRank(rank.kyu)} · vs {AI_LEVELS[aiLevelForKyu(targetKyu)].name}
+            {formatRank(rank.kyu)} · vs {opponentLevel.name}
           </span>
         </header>
         <div className="level-select-body stagger">
           <Logo size="md" className="screen-mark" />
           <h2>How long have you got?</h2>
           <p className="level-select-note">
-            A bigger board is a longer game. The full board is played on a
-            clock; the smaller ones are untimed.
+            Pick a board and you're straight in — colour's a coin flip,
+            opponent strength matches your rating unless you change it below.
           </p>
           <div className="level-list">
             {FORMATS.map((option) => (
@@ -306,7 +323,8 @@ export default function PlayAI({ onExit, rank, onRankChange }) {
                 key={option.id}
                 type="button"
                 className="level-card"
-                onClick={() => setFormat(option)}
+                onClick={() => startQuickGame(option)}
+                disabled={starting}
               >
                 <span className="level-name">
                   {option.name}
@@ -316,92 +334,60 @@ export default function PlayAI({ onExit, rank, onRankChange }) {
               </button>
             ))}
           </div>
-        </div>
-      </div>
-    )
-  }
 
-  // Step 2: pick the opponent's exact strength, defaulting to an automatic
-  // match against the player's own live rating.
-  if (!strengthConfirmed) {
-    const opponentLevel = AI_LEVELS[aiLevelForKyu(targetKyu)]
-    const isMatched = Math.abs(targetKyu - rank.kyu) < 0.05
-
-    return (
-      <div className="level-select">
-        <header className="tutorial-header">
-          <button type="button" className="link-button" onClick={() => setFormat(null)}>
-            ← Back
-          </button>
-          <span className="tutorial-progress">
-            {format.name} · {format.boardSize}×{format.boardSize}
-          </span>
-        </header>
-        <div className="level-select-body stagger">
-          <Logo size="md" className="screen-mark" />
-          <h2>How strong should your opponent be?</h2>
-          <p className="level-select-note">
-            Left alone, this matches your current rating automatically. Drag
-            it to play someone deliberately stronger or weaker.
-          </p>
-          <div className="strength-picker">
-            <input
-              type="range"
-              className="strength-slider"
-              min={-MAX_KYU}
-              max={-MIN_KYU}
-              step={0.5}
-              // Inverted so dragging right makes the opponent stronger, which
-              // reads more naturally than higher-kyu-number-is-weaker does.
-              value={-targetKyu}
-              onChange={(e) => setTargetKyu(-Number(e.target.value))}
-            />
-            <div className="strength-picker-readout">
-              <strong>{formatRank(targetKyu)}</strong>
-              <span>
-                {opponentLevel.name} — {opponentLevel.blurb.toLowerCase()}
-              </span>
-            </div>
-            {!isMatched && (
-              <button
-                type="button"
-                className="link-button"
-                onClick={() => setTargetKyu(rank.kyu)}
-              >
-                Match my level ({formatRank(rank.kyu)})
-              </button>
+          <div className="strength-panel">
+            <button
+              type="button"
+              className="link-button"
+              onClick={() => setShowStrength((v) => !v)}
+            >
+              Opponent: {formatRank(targetKyu)} · {opponentLevel.name}{' '}
+              {showStrength ? '▲' : '▾'}
+            </button>
+            {showStrength && (
+              <div className="strength-picker">
+                <input
+                  type="range"
+                  className="strength-slider"
+                  min={-MAX_KYU}
+                  max={-MIN_KYU}
+                  step={0.5}
+                  // Inverted so dragging right makes the opponent stronger,
+                  // which reads more naturally than higher-kyu-is-weaker does.
+                  value={-targetKyu}
+                  onChange={(e) => setTargetKyu(-Number(e.target.value))}
+                />
+                <div className="strength-picker-readout">
+                  <strong>{formatRank(targetKyu)}</strong>
+                  <span>
+                    {opponentLevel.name} — {opponentLevel.blurb.toLowerCase()}
+                  </span>
+                </div>
+                {!isMatched && (
+                  <button
+                    type="button"
+                    className="link-button"
+                    onClick={() => setTargetKyu(rank.kyu)}
+                  >
+                    Match my level ({formatRank(rank.kyu)})
+                  </button>
+                )}
+              </div>
             )}
           </div>
-          <button
-            type="button"
-            className="primary-button"
-            onClick={() => setStrengthConfirmed(true)}
-          >
-            Continue
-          </button>
+
+          {starting && (
+            <p className="tutorial-feedback info">
+              Setting up your game{humanColor ? ` as ${humanColor === 'black' ? 'Black' : 'White'}` : ''}…
+            </p>
+          )}
+          {error && <p className="tutorial-feedback error">{error}</p>}
         </div>
       </div>
     )
   }
 
-  // Step 3: decide colours, immediately before play.
-  if (!started) {
-    return (
-      <>
-        <Nigiri
-          boardLabel={`${format.name} · ${format.boardSize}×${format.boardSize}`}
-          busy={starting}
-          onDecided={start}
-          onCancel={() => setFormat(null)}
-        />
-        {error && (
-          <p className="tutorial-feedback error nigiri-error">{error}</p>
-        )}
-      </>
-    )
-  }
-
-  // Step 4: the game is over — it gets the whole screen, so a result (a
+  // The game is over — it gets the whole screen, so a result (a
   // resignation especially) can't be missed under the board.
   if (result) {
     return (
