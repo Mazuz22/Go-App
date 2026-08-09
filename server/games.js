@@ -320,6 +320,25 @@ export function getGame(id) {
   return game
 }
 
+/**
+ * Serialize everything that talks to one game's GNU Go process. A single
+ * move can now chain several GTP round-trips (topMoves, estimate_score, play,
+ * estimate_score again — see judgeHumanMoveBefore/After), and GTP responses
+ * are matched to requests strictly in send order, so two overlapping requests
+ * for the same game (a network retry, a click the UI's own lock didn't catch)
+ * could otherwise interleave commands and hand back nonsense. Runs `fn`
+ * against the queue, and keeps the queue alive even if `fn` throws.
+ */
+export function runExclusive(game, fn) {
+  const prior = game._lock ?? Promise.resolve()
+  const result = prior.then(fn, fn)
+  game._lock = result.then(
+    () => undefined,
+    () => undefined,
+  )
+  return result
+}
+
 export async function destroyGame(id) {
   const game = games.get(id)
   if (!game) return false

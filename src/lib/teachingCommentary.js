@@ -8,16 +8,27 @@
  * judgeHumanMoveAfter / chooseEngineMove in server/games.js.
  */
 
-/** @param quality {lost, tier, candidateRank} | null, from the /move response */
+/**
+ * `tier`/`lost` (before/after estimate_score) and `candidateRank` (GNU Go's
+ * own move-generation ranking) are two independent reads of the position, and
+ * can disagree — a move can be one of the engine's own top picks and still
+ * score as a real point loss if a group's life/death status just resolved.
+ * The point-loss warning has to win that conflict: telling a beginner "good
+ * move" in the same beat their score visibly drops is worse than saying
+ * nothing about the candidate match at all.
+ *
+ * @param quality {lost, tier, candidateRank} | null, from the /move response
+ */
 export function noteForHumanMove(quality) {
   if (!quality) return null
   const { tier, lost, candidateRank } = quality
 
+  if (tier === 'blunder') return `That one gives up real points — about ${lost}.`
+  if (tier === 'mistake') return `That lets something go — roughly ${lost} points.`
+
   if (candidateRank === 0) return "That's the move I'd have played too."
   if (candidateRank === 1 || candidateRank === 2) return 'Good idea — that was high on my list too.'
 
-  if (tier === 'blunder') return `That one gives up real points — about ${lost}.`
-  if (tier === 'mistake') return `That lets something go — roughly ${lost} points.`
   if (tier === 'inaccuracy') return 'A touch loose, but not a big deal.'
 
   // tier === 'good' but not a top-3 candidate: solid and unremarkable, not

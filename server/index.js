@@ -12,6 +12,7 @@ import {
   judgeHumanMoveAfter,
   judgeHumanMoveBefore,
   reviewGame,
+  runExclusive,
   serialize,
   shutdown,
   MIN_KYU,
@@ -138,24 +139,30 @@ app.post(
       return res.status(400).json({ error: 'Move is off the board' })
     }
 
-    // Teaching Game mode grades the move live. The "before" half has to run
-    // ahead of the move itself — it needs the position as it stood beforehand.
-    const judging = game.mode === 'teaching' ? await judgeHumanMoveBefore(game) : null
+    // A move can chain several GTP round-trips (topMoves, estimate_score,
+    // play, estimate_score again in Teaching mode) — runExclusive keeps an
+    // overlapping request for the same game from interleaving into this one.
+    await runExclusive(game, async () => {
+      // Teaching Game mode grades the move live. The "before" half has to run
+      // ahead of the move itself — it needs the position as it stood beforehand.
+      const judging = game.mode === 'teaching' ? await judgeHumanMoveBefore(game) : null
 
-    try {
-      await game.engine.play(game.humanColor, y, x)
-    } catch (err) {
-      // GNU Go rejects illegal moves (occupied, suicide, ko).
-      return res.status(422).json({ error: err.message || 'Illegal move' })
-    }
+      try {
+        await game.engine.play(game.humanColor, y, x)
+      } catch (err) {
+        // GNU Go rejects illegal moves (occupied, suicide, ko).
+        res.status(422).json({ error: err.message || 'Illegal move' })
+        return
+      }
 
-    const quality = judging ? await judgeHumanMoveAfter(game, judging, y, x) : null
+      const quality = judging ? await judgeHumanMoveAfter(game, judging, y, x) : null
 
-    game.consecutivePasses = 0
-    game.moves.push({ color: game.humanColor, y, x })
+      game.consecutivePasses = 0
+      game.moves.push({ color: game.humanColor, y, x })
 
-    const reply = await playEngineReply(game)
-    res.json({ ai: reply, game: serialize(game), quality })
+      const reply = await playEngineReply(game)
+      res.json({ ai: reply, game: serialize(game), quality })
+    })
   }),
 )
 
@@ -165,17 +172,20 @@ app.post(
     const game = requireGame(req, res)
     if (!game) return
 
-    await game.engine.pass(game.humanColor)
-    game.consecutivePasses += 1
-    game.moves.push({ color: game.humanColor, pass: true })
+    await runExclusive(game, async () => {
+      await game.engine.pass(game.humanColor)
+      game.consecutivePasses += 1
+      game.moves.push({ color: game.humanColor, pass: true })
 
-    if (game.consecutivePasses >= 2) {
-      await finish(game)
-      return res.json({ ai: null, game: serialize(game) })
-    }
+      if (game.consecutivePasses >= 2) {
+        await finish(game)
+        res.json({ ai: null, game: serialize(game) })
+        return
+      }
 
-    const reply = await playEngineReply(game)
-    res.json({ ai: reply, game: serialize(game) })
+      const reply = await playEngineReply(game)
+      res.json({ ai: reply, game: serialize(game) })
+    })
   }),
 )
 
@@ -185,13 +195,15 @@ app.get(
     const game = requireGame(req, res)
     if (!game) return
 
-    // The engine's own ranked candidates for the player's colour.
-    const candidates = await game.engine.topMoves(game.humanColor)
-    res.json({
-      color: game.humanColor,
-      moveNumber: game.moves.length,
-      best: candidates[0] ?? null,
-      alternatives: candidates.slice(1, 3),
+    await runExclusive(game, async () => {
+      // The engine's own ranked candidates for the player's colour.
+      const candidates = await game.engine.topMoves(game.humanColor)
+      res.json({
+        color: game.humanColor,
+        moveNumber: game.moves.length,
+        best: candidates[0] ?? null,
+        alternatives: candidates.slice(1, 3),
+      })
     })
   }),
 )
