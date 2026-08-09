@@ -41,7 +41,7 @@ const MIN_SWEEP_MS = 650
 const MAX_SWEEP_MS = 2200
 const SWEEP_MS_PER_POINT = 55
 
-export default function PlayAI({ onExit, rank, onRankChange }) {
+export default function PlayAI({ onExit, rank, onRankChange, quickStart = false }) {
   // Pre-game is a single screen: pick a board size and the game starts
   // immediately, matched to your own rating and a randomly assigned colour.
   // Opponent strength is adjustable there too, but as an optional disclosure
@@ -375,6 +375,22 @@ export default function PlayAI({ onExit, rank, onRankChange }) {
     setHint(null)
   }, [turn])
 
+  const startQuickGame = (option) => {
+    const color = Math.random() < 0.5 ? 'black' : 'white'
+    start(color, option)
+  }
+
+  // Home's one-tap Play: skip the board-size screen entirely and go straight
+  // into a Quick game, matched to the player's own rating. Guarded by `error`
+  // so a failed attempt falls back to the ordinary picker below instead of
+  // retrying forever.
+  useEffect(() => {
+    if (quickStart && !started && !starting && !error) {
+      startQuickGame(FORMATS[0])
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quickStart, started, error])
+
   // Pre-game: one screen. Tapping a board size starts the game immediately —
   // opponent strength defaults to an automatic match against the player's
   // own live rating, and colour is assigned by a coin flip, so doing nothing
@@ -383,9 +399,22 @@ export default function PlayAI({ onExit, rank, onRankChange }) {
     const opponentLevel = AI_LEVELS[aiLevelForKyu(targetKyu)]
     const isMatched = Math.abs(targetKyu - rank.kyu) < 0.05
 
-    const startQuickGame = (option) => {
-      const color = Math.random() < 0.5 ? 'black' : 'white'
-      start(color, option)
+    // Quick-starting: nothing to show but a brief "setting up" beat — the
+    // full picker only appears if that failed (see the effect above).
+    if (quickStart && !error) {
+      return (
+        <div className="level-select">
+          <header className="tutorial-header">
+            <button type="button" className="link-button" onClick={onExit}>
+              ← Home
+            </button>
+          </header>
+          <div className="level-select-body stagger">
+            <Logo size="md" className="screen-mark" />
+            <p className="tutorial-feedback info">Setting up your game…</p>
+          </div>
+        </div>
+      )
     }
 
     return (

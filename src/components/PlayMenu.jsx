@@ -1,10 +1,11 @@
 import Logo from './Logo'
 
 /**
- * The second home category — everything that isn't a straight AI match
- * (that's Home's own "Play" button, which skips this screen entirely).
+ * The second home category — everything beyond Home's own one-tap "Play"
+ * (a quick game, matched to your rating). Here you deliberately choose: a
+ * longer/shorter board and opponent strength, or a different mode entirely.
  */
-export default function PlayMenu({ onPuzzles, onFreePlay, onLessons, onExit }) {
+export default function PlayMenu({ onPuzzles, onFreePlay, onLessons, onPlayAI, onExit }) {
   return (
     <div className="level-select">
       <header className="tutorial-header">
@@ -16,6 +17,10 @@ export default function PlayMenu({ onPuzzles, onFreePlay, onLessons, onExit }) {
         <Logo size="md" className="screen-mark" />
         <h2>Play modes</h2>
         <div className="level-list">
+          <button type="button" className="level-card" onClick={onPlayAI}>
+            <span className="level-name">Play vs AI</span>
+            <span className="level-blurb">Choose board size and opponent strength yourself.</span>
+          </button>
           <button type="button" className="level-card" onClick={onPuzzles}>
             <span className="level-name">Puzzles</span>
             <span className="level-blurb">Short tactics — capture, life and death.</span>

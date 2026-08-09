@@ -16,6 +16,11 @@ export default function App() {
   const [rank, setRank] = useState(() => loadRank())
   // Which lesson Tutorial should open on, set by LessonPicker.
   const [lessonIndex, setLessonIndex] = useState(0)
+  // Whether entering PlayAI should skip its board-size screen and just start
+  // a quick game. True for Home's one-tap Play (the common case); false when
+  // reached via Play modes → Play vs AI, where picking board size/opponent
+  // strength deliberately is the point.
+  const [quickStart, setQuickStart] = useState(true)
 
   // Shared by the assessment flow (which also switches screens) and by
   // in-game rating updates (which don't).
@@ -52,24 +57,40 @@ export default function App() {
             onPuzzles={() => setScreen('puzzles')}
             onFreePlay={() => setScreen('play')}
             onLessons={() => setScreen('lessons')}
+            onPlayAI={() => {
+              // A deliberate choice of board size/opponent strength, not the
+              // one-tap quick path — show PlayAI's own picker screen.
+              setQuickStart(false)
+              setScreen(rank ? 'ai' : 'assess')
+            }}
             onExit={() => setScreen('home')}
           />
         )
       case 'puzzles':
         return <Puzzles onExit={() => setScreen('play-menu')} />
       // PlayAI runs its own single-screen pre-game flow (board size only —
-      // colour and, by default, opponent strength are automatic).
+      // colour and, by default, opponent strength are automatic) unless
+      // quickStart skips straight to a Quick game.
       case 'ai':
         return rank ? (
-          <PlayAI rank={rank} onRankChange={applyRank} onExit={() => setScreen('home')} />
+          <PlayAI
+            rank={rank}
+            onRankChange={applyRank}
+            quickStart={quickStart}
+            onExit={() => setScreen('home')}
+          />
         ) : null
       case 'play':
         return <FreePlay onExit={() => setScreen('play-menu')} />
       default:
         return (
           <Home
-            // Without a rank we can't set the opponent's level, so assess first.
-            onPlay={() => setScreen(rank ? 'ai' : 'assess')}
+            // Without a rank we can't set the opponent's level, so assess first
+            // — either way this is the one-tap quick path.
+            onPlay={() => {
+              setQuickStart(true)
+              setScreen(rank ? 'ai' : 'assess')
+            }}
             onPlayModes={() => setScreen('play-menu')}
           />
         )
