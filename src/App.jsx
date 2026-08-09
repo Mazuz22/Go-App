@@ -3,6 +3,8 @@ import FreePlay from './components/FreePlay'
 import Tutorial from './components/Tutorial'
 import LessonPicker from './components/LessonPicker'
 import Home from './components/Home'
+import PlayMenu from './components/PlayMenu'
+import Puzzles from './components/Puzzles'
 import PlayAI from './components/PlayAI'
 import Assessment from './components/Assessment'
 import { loadRank, saveRank } from './lib/rank'
@@ -44,21 +46,31 @@ export default function App() {
         )
       case 'tutorial':
         return <Tutorial startIndex={lessonIndex} onExit={() => setScreen('lessons')} />
+      case 'play-menu':
+        return (
+          <PlayMenu
+            // Without a rank we can't set the opponent's level, so assess first.
+            onPlayAI={() => setScreen(rank ? 'ai' : 'assess')}
+            onPuzzles={() => setScreen('puzzles')}
+            onFreePlay={() => setScreen('play')}
+            onExit={() => setScreen('home')}
+          />
+        )
+      case 'puzzles':
+        return <Puzzles onExit={() => setScreen('play-menu')} />
       // PlayAI runs its own pre-game flow: board size, then nigiri.
       case 'ai':
         return rank ? (
           <PlayAI rank={rank} onRankChange={applyRank} onExit={() => setScreen('home')} />
         ) : null
       case 'play':
-        return <FreePlay onExit={() => setScreen('home')} />
+        return <FreePlay onExit={() => setScreen('play-menu')} />
       default:
         return (
           <Home
             rank={rank}
-            onStartTutorial={() => setScreen('lessons')}
-            onFreePlay={() => setScreen('play')}
-            // Without a rank we can't set the opponent's level, so assess first.
-            onPlayAI={() => setScreen(rank ? 'ai' : 'assess')}
+            onPlay={() => setScreen('play-menu')}
+            onHowToPlay={() => setScreen('lessons')}
             onReassess={() => setScreen('assess')}
           />
         )
