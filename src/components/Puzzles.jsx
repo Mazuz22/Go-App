@@ -53,6 +53,10 @@ export default function Puzzles({ onExit }) {
   // after a miss is still allowed (and still needed to move on), it just
   // stops affecting the number.
   const attemptCountedRef = useRef(false)
+  // Bumped on every reset/advance so an in-flight explain request that
+  // resolves after the player has already moved on doesn't land its answer
+  // (or an error) on the wrong puzzle/attempt.
+  const explainTokenRef = useRef(0)
 
   const puzzle = round[roundIndex]
   const isLastInRound = roundIndex === round.length - 1
@@ -94,6 +98,7 @@ export default function Puzzles({ onExit }) {
   }
 
   const askWhy = async () => {
+    const token = explainTokenRef.current
     setExplaining(true)
     setExplainError(null)
     try {
@@ -104,16 +109,19 @@ export default function Puzzles({ onExit }) {
         playedColor: studentColor,
         playedPoint: missedPoint,
       })
+      if (explainTokenRef.current !== token) return
       setExplanation(note)
     } catch (err) {
+      if (explainTokenRef.current !== token) return
       setExplainError(err.message)
     } finally {
-      setExplaining(false)
+      if (explainTokenRef.current === token) setExplaining(false)
     }
   }
 
   const handleReset = () => {
     clearTimeout(timer.current)
+    explainTokenRef.current += 1
     setFeedback(null)
     setSolved(false)
     setAttempt((n) => n + 1)
@@ -124,6 +132,7 @@ export default function Puzzles({ onExit }) {
 
   const advance = () => {
     clearTimeout(timer.current)
+    explainTokenRef.current += 1
     setFeedback(null)
     setSolved(false)
     setAttempt((n) => n + 1)
@@ -141,6 +150,7 @@ export default function Puzzles({ onExit }) {
   }
 
   const startNextRound = () => {
+    explainTokenRef.current += 1
     setRound(buildRound(puzzleRank.kyu, recentIdsRef.current))
     setRatingBefore(puzzleRank.kyu)
     setRoundIndex(0)

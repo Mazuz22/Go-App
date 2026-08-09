@@ -856,18 +856,75 @@ body {
   color: var(--text-muted);
 }
 
-.mode-card {
-  margin-top: 4px;
-  border: 1px solid transparent;
+/* A settings-style switch, deliberately unlike the level-card buttons above
+   it (which start a game the instant you tap them) — this only sets a
+   preference, so it needs to read as a toggle, not a fourth "pick me" card. */
+.mode-toggle-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 10px;
+  padding: 10px 4px;
+  cursor: pointer;
 }
 
-.mode-card.on {
-  border-color: var(--accent);
-  box-shadow: 0 2px 12px rgba(var(--accent-rgb), 0.25);
+.mode-toggle-input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
 }
 
-.mode-card-check {
-  color: var(--accent-strong);
+.mode-toggle-switch {
+  position: relative;
+  flex-shrink: 0;
+  width: 40px;
+  height: 24px;
+  margin-top: 2px;
+  border-radius: 999px;
+  background: var(--card-border);
+  transition: background 0.2s var(--ease-out);
+}
+
+.mode-toggle-switch::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.2s var(--ease-out);
+}
+
+.mode-toggle-input:checked + .mode-toggle-switch {
+  background: var(--accent);
+}
+
+.mode-toggle-input:checked + .mode-toggle-switch::after {
+  transform: translateX(16px);
+}
+
+.mode-toggle-input:focus-visible + .mode-toggle-switch {
+  outline: 2px solid var(--accent-strong);
+  outline-offset: 2px;
+}
+
+.mode-toggle-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mode-toggle-name {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.mode-toggle-blurb {
+  font-size: 13px;
+  color: var(--text-muted);
 }
 
 /* Exact opponent-strength control, replacing a row of named difficulty

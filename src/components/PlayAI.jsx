@@ -50,15 +50,14 @@ const MIN_SWEEP_MS = 650
 const MAX_SWEEP_MS = 2200
 const SWEEP_MS_PER_POINT = 55
 
-export default function PlayAI({ onExit, rank, onRankChange, quickStart = false }) {
+export default function PlayAI({ onExit, rank, onRankChange }) {
   // Pre-game is a single screen: pick a board size and the game starts
   // immediately, matched to your own rating and a randomly assigned colour.
   // Opponent strength is adjustable there too, but as an optional disclosure
   // rather than a step you have to pass through.
   const [format, setFormat] = useState(null)
   // 'play' (default, silent) or 'teaching' (live chat-bar notes grounded in
-  // real per-move analysis) — never set by the one-tap quick-start path,
-  // only chosen explicitly on the full picker below.
+  // real per-move analysis) — set explicitly on the picker below.
   const [mode, setMode] = useState('play')
   const [teachingLog, setTeachingLog] = useState([])
   const teachingLogIdRef = useRef(0)
@@ -271,8 +270,10 @@ export default function PlayAI({ onExit, rank, onRankChange, quickStart = false 
       })
       setGameId(game.id)
       setMoves(game.moves ?? [])
-      // When the human takes white, the engine has already opened as black.
+      // When the human takes white, the engine has already opened as black —
+      // that move never passes through applyReply, so it needs its own note.
       setOpeningMove(game.firstMove ?? null)
+      if (mode === 'teaching') addTeachingNote(noteForAiMove(game.firstMove))
       // Untimed formats pass no clocks, so the bars fall back to a turn badge.
       setClocks(
         chosenFormat.minutes
@@ -409,42 +410,14 @@ export default function PlayAI({ onExit, rank, onRankChange, quickStart = false 
     start(color, option)
   }
 
-  // Home's one-tap Play: skip the board-size screen entirely and go straight
-  // into a Quick game, matched to the player's own rating. Guarded by `error`
-  // so a failed attempt falls back to the ordinary picker below instead of
-  // retrying forever.
-  useEffect(() => {
-    if (quickStart && !started && !starting && !error) {
-      startQuickGame(FORMATS[0])
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [quickStart, started, error])
-
   // Pre-game: one screen. Tapping a board size starts the game immediately —
   // opponent strength defaults to an automatic match against the player's
-  // own live rating, and colour is assigned by a coin flip, so doing nothing
-  // but picking a board is the entire decision most people need to make.
+  // own live rating, and colour is assigned by a coin flip — but board size
+  // and the Teaching game toggle are always a deliberate choice made here
+  // first, never skipped.
   if (!started) {
     const opponentLevel = AI_LEVELS[aiLevelForKyu(targetKyu)]
     const isMatched = Math.abs(targetKyu - rank.kyu) < 0.05
-
-    // Quick-starting: nothing to show but a brief "setting up" beat — the
-    // full picker only appears if that failed (see the effect above).
-    if (quickStart && !error) {
-      return (
-        <div className="level-select">
-          <header className="tutorial-header">
-            <button type="button" className="link-button" onClick={onExit}>
-              ← Home
-            </button>
-          </header>
-          <div className="level-select-body stagger">
-            <Logo size="md" className="screen-mark" />
-            <p className="tutorial-feedback info">Setting up your game…</p>
-          </div>
-        </div>
-      )
-    }
 
     return (
       <div className="level-select">
@@ -481,19 +454,22 @@ export default function PlayAI({ onExit, rank, onRankChange, quickStart = false 
             ))}
           </div>
 
-          <button
-            type="button"
-            className={`level-card mode-card${mode === 'teaching' ? ' on' : ''}`}
-            onClick={() => setMode((m) => (m === 'teaching' ? 'play' : 'teaching'))}
-            aria-pressed={mode === 'teaching'}
-          >
-            <span className="level-name">
-              Teaching game {mode === 'teaching' && <span className="mode-card-check">✓</span>}
+          <label className="mode-toggle-row">
+            <input
+              type="checkbox"
+              className="mode-toggle-input"
+              checked={mode === 'teaching'}
+              onChange={(e) => setMode(e.target.checked ? 'teaching' : 'play')}
+            />
+            <span className="mode-toggle-switch" aria-hidden="true" />
+            <span className="mode-toggle-text">
+              <span className="mode-toggle-name">Teaching game</span>
+              <span className="mode-toggle-blurb">
+                I'll talk through your moves and mine as we go, instead of staying quiet until the
+                end — pick a board above once this is set the way you want it.
+              </span>
             </span>
-            <span className="level-blurb">
-              I'll talk through your moves and mine as we go, instead of staying quiet until the end.
-            </span>
-          </button>
+          </label>
 
           <div className="strength-panel">
             <button
