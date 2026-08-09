@@ -87,7 +87,9 @@ export default function PlayAI({ onExit, rank, onRankChange }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [turn, result, Boolean(clocks)])
 
-  // Running out of time loses, the same as resigning.
+  // Running out of time loses, the same as resigning. The clock is purely a
+  // client-side concept, so unless the server is told, it never learns the
+  // game ended — leaving it permanently "in progress" and unreviewable.
   useEffect(() => {
     if (!clocks || result) return
     const loser = clocks.black <= 0 ? 'black' : clocks.white <= 0 ? 'white' : null
@@ -110,6 +112,14 @@ export default function PlayAI({ onExit, rank, onRankChange }) {
 
     let cancelled = false
     ;(async () => {
+      // A timeout ends the game purely client-side (the clock) — the server
+      // never hears about it otherwise, and /review 409s on a game it still
+      // thinks is in progress. Tell it first, before asking for the review.
+      if (result.reason === 'timeout') {
+        const loser = result.winner === humanColor ? aiColor : humanColor
+        await api.timeoutGame(gameId, loser).catch(() => {})
+      }
+
       let averageLoss = null
       try {
         const reviewData = await api.reviewGame(gameId)
@@ -250,7 +260,14 @@ export default function PlayAI({ onExit, rank, onRankChange }) {
     setError(null)
     try {
       const data = await api.getHint(gameId)
-      setHint(data.best ? { ...data.best, moveNumber: data.moveNumber } : null)
+      // Late in a game, the engine may have no candidate worth suggesting at
+      // all — that's a real answer ("pass"), not nothing, so it still needs
+      // to render something rather than silently clearing the hint.
+      setHint(
+        data.best
+          ? { ...data.best, moveNumber: data.moveNumber }
+          : { moveNumber: data.moveNumber, noMove: true },
+      )
     } catch (err) {
       setError(err.message)
     } finally {
@@ -299,10 +316,6 @@ export default function PlayAI({ onExit, rank, onRankChange }) {
               </button>
             ))}
           </div>
-          <p className="level-select-note assessment-footnote">
-            An even board, no handicap. Next you'll pick exactly how strong
-            your opponent should be — it defaults to matching your own rating.
-          </p>
         </div>
       </div>
     )
@@ -436,7 +449,7 @@ export default function PlayAI({ onExit, rank, onRankChange }) {
       <GoBoard
         boardSize={format.boardSize}
         clocks={clocks}
-        marks={hint ? [{ type: 'circle', y: hint.y, x: hint.x, tone: 'accent' }] : []}
+        marks={hint && !hint.noMove ? [{ type: 'circle', y: hint.y, x: hint.x, tone: 'accent' }] : []}
         players={{
           [humanColor]: 'You',
           [`${humanColor}Detail`]: `${humanColor === 'black' ? 'Black' : 'White'} · ${formatRank(rank.kyu)}`,
@@ -487,8 +500,10 @@ export default function PlayAI({ onExit, rank, onRankChange }) {
             <span className="hint-bar-label">Hint</span>
             <div className="hint-bar-body">
               <span className="hint-bar-why">
-                {describeOpening(hint, format.boardSize, hint.moveNumber) ??
-                  'Best move marked on the board.'}
+                {hint.noMove
+                  ? 'No move here is worth much anymore — this is a good place to pass.'
+                  : describeOpening(hint, format.boardSize, hint.moveNumber) ??
+                    'Best move marked on the board.'}
               </span>
             </div>
           </div>

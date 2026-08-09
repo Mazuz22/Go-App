@@ -222,7 +222,7 @@ body {
 .primary-button {
   color: var(--accent-ink);
   background: linear-gradient(155deg, var(--accent-strong) 0%, var(--accent) 55%, var(--accent-deep) 100%);
-  border: 1px solid var(--accent-deep);
+  border: 0;
   letter-spacing: 0.04em;
 }
 
@@ -233,7 +233,8 @@ body {
 .ghost-button {
   color: var(--text);
   background: var(--card-bg);
-  border: 1px solid var(--card-border);
+  border: 0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
 }
 
 .ghost-button:active {
@@ -685,11 +686,6 @@ body {
   text-decoration: underline;
 }
 
-.assessment-footnote {
-  margin-top: 18px;
-  font-size: 13px;
-}
-
 /* Shares the hero's left edge — a single margin governs the column. */
 .home-actions {
   display: flex;
@@ -869,13 +865,13 @@ body {
   text-align: left;
   color: var(--text);
   background: var(--card-bg);
-  border: 1px solid var(--card-border);
+  border: 0;
   border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
   cursor: pointer;
   overflow: hidden;
   transition:
     background 0.2s var(--ease-out),
-    border-color 0.2s var(--ease-out),
     transform 0.18s var(--ease-out),
     box-shadow 0.25s var(--ease-out);
 }
@@ -893,7 +889,6 @@ body {
 
 .level-card:hover {
   transform: translateY(-2px);
-  border-color: color-mix(in srgb, var(--accent) 45%, var(--card-border));
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.4);
 }
 
@@ -963,7 +958,7 @@ body {
   gap: 10px;
 }
 
-/* Outlined pills, uppercase and tracked out, as in the reference. */
+/* Filled pills, uppercase and tracked out, as in the reference. */
 .go-board-toolbar button {
   display: inline-flex;
   align-items: center;
@@ -978,8 +973,9 @@ body {
   text-transform: uppercase;
   color: var(--text);
   background: var(--card-bg);
-  border: 1px solid var(--card-border);
+  border: 0;
   border-radius: 999px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
   cursor: pointer;
 }
 
@@ -1060,7 +1056,6 @@ body {
 
 .go-board-toolbar button.hint {
   color: var(--accent-strong);
-  border-color: color-mix(in srgb, var(--accent) 40%, var(--card-border));
 }
 
 /* ---------------------------------------------------------------------------
@@ -1152,17 +1147,11 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-.review-empty,
-.review-note {
+.review-empty {
   margin: 0;
   font-size: 13px;
   line-height: 1.5;
   color: var(--text-muted);
-}
-
-.review-note {
-  margin-top: 12px;
-  font-size: 12px;
 }
 
 .review-coach-note {

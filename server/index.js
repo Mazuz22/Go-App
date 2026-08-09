@@ -253,6 +253,26 @@ app.post(
   }),
 )
 
+// The clock is a purely client-side concept — the server has no idea a
+// player ran out of time until told, so without this a timeout-ended game
+// stays "in progress" forever server-side and can never be reviewed.
+app.post(
+  '/api/games/:id/timeout',
+  route(async (req, res) => {
+    const game = requireGame(req, res)
+    if (!game) return
+
+    const { loser } = req.body ?? {}
+    if (loser !== 'black' && loser !== 'white') {
+      return res.status(400).json({ error: 'loser must be black or white' })
+    }
+
+    game.over = true
+    game.result = { winner: loser === 'black' ? 'white' : 'black', reason: 'timeout' }
+    res.json({ game: serialize(game) })
+  }),
+)
+
 app.delete(
   '/api/games/:id',
   route(async (req, res) => {

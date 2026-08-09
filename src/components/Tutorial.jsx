@@ -91,6 +91,14 @@ export default function Tutorial({ onExit, startIndex = 0 }) {
       return
     }
 
+    // Some lessons (e.g. the pass-only "ending the game" one) only define
+    // allowPass and have no check/tree at all — any stone placement there is
+    // simply not the expected move, not something to evaluate.
+    if (!lesson.check) {
+      reject(game)
+      return
+    }
+
     const result = lesson.check({ game, state, playedPoint })
     if (result.ok) succeed()
     else reject(game, result.message)

@@ -30,7 +30,6 @@ export default function LessonPicker({ onSelect, onExit }) {
               <span className="level-name">
                 {i + 1}. {lesson.title}
               </span>
-              <span className="level-blurb">{lesson.intro}</span>
             </button>
           ))}
         </div>

@@ -138,12 +138,6 @@ export default function GameOver({
               boardSize={boardSize}
               coachNotes={coachNotes}
             />
-            {review.mistakes.length > 0 && (
-              <p className="review-note">
-                Measured by how far the estimated score moved against you
-                across your own turn.
-              </p>
-            )}
             {review.mistakes.length > 0 && !coachNotes && (
               <button
                 type="button"

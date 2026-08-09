@@ -300,11 +300,14 @@ function Mark({ type, style, tone = 'auto' }) {
   // A suggestion is the app talking, so it takes the accent colour and gets a
   // halo — a thin dark ring on dark wood is close to invisible. Teaching marks
   // get their own blue gradient instead, readable on stone, wood, or empty
-  // points alike. useId keeps each mark's <linearGradient> uniquely
-  // addressable even with several marks on the board at once.
+  // points alike. Each mark needs its own uniquely-addressable
+  // <linearGradient> — useId is the natural fit, but its output (e.g. ":r0:")
+  // contains colons, and colon-bearing IDs referenced via url(#...) have a
+  // history of silently failing to resolve on Safari/WebKit. Stripped here
+  // since there's no reason to find that out from an iPhone bug report.
   const accent = tone === 'accent'
   const qualityColor = QUALITY_COLORS[tone]
-  const gradientId = useId()
+  const gradientId = `mark-gradient-${useId().replace(/:/g, '')}`
   const stroke = accent ? 'var(--accent-strong)' : (qualityColor ?? `url(#${gradientId})`)
 
   return (

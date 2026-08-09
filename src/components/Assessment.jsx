@@ -8,8 +8,8 @@ import { EXPERIENCE_OPTIONS, kyuFromScore } from '../lib/rank'
 const NEXT_DELAY_MS = 700
 
 /**
- * Works out how strong the player is, so the app can pick a handicap for them
- * rather than asking them to pick one. Either they say, or they take a short
+ * Works out how strong the player is, to seed their starting rating rather
+ * than asking them to pick one blind. Either they say, or they take a short
  * test — both produce a kyu estimate.
  */
 export default function Assessment({ onDone, onCancel }) {
@@ -55,8 +55,7 @@ export default function Assessment({ onDone, onCancel }) {
           <Logo size="md" className="screen-mark" />
           <h2>How much Go have you played?</h2>
           <p className="level-select-note">
-            This sets how much of a head start you get. It is only a starting
-            point — it will adjust as you play.
+            This sets your starting rating — it adjusts automatically as you play.
           </p>
           <div className="level-list">
             {EXPERIENCE_OPTIONS.map((option) => (

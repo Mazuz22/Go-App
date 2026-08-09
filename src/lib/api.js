@@ -73,4 +73,7 @@ export const explainMistakes = (id, mistakes) =>
 
 export const resignGame = (id) => request(`/games/${id}/resign`, { method: 'POST' })
 
+export const timeoutGame = (id, loser) =>
+  request(`/games/${id}/timeout`, { method: 'POST', body: { loser } })
+
 export const deleteGame = (id) => request(`/games/${id}`, { method: 'DELETE' })
