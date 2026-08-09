@@ -9,6 +9,8 @@ import {
   chooseEngineMove,
   destroyGame,
   getGame,
+  judgeHumanMoveAfter,
+  judgeHumanMoveBefore,
   reviewGame,
   serialize,
   shutdown,
@@ -89,7 +91,7 @@ app.get('/api/health', (_req, res) => res.json({ ok: true }))
 app.post(
   '/api/games',
   route(async (req, res) => {
-    const { targetKyu = 20, boardSize = 9, humanColor = 'black' } = req.body ?? {}
+    const { targetKyu = 20, boardSize = 9, humanColor = 'black', mode = 'play' } = req.body ?? {}
     if (typeof targetKyu !== 'number' || Number.isNaN(targetKyu)) {
       return res.status(400).json({ error: 'targetKyu must be a number' })
     }
@@ -99,10 +101,13 @@ app.post(
     if (humanColor !== 'black' && humanColor !== 'white') {
       return res.status(400).json({ error: 'humanColor must be black or white' })
     }
+    if (mode !== 'play' && mode !== 'teaching') {
+      return res.status(400).json({ error: 'mode must be play or teaching' })
+    }
 
     // Always an even game now: difficulty comes from how the engine plays,
     // not from stones on the board before anyone has moved.
-    const game = await createGame({ targetKyu, boardSize, humanColor })
+    const game = await createGame({ targetKyu, boardSize, humanColor, mode })
 
     // Black always moves first, so when the human takes white the engine opens.
     const firstMove = game.aiColor === 'black' ? await playEngineReply(game) : null
@@ -133,6 +138,10 @@ app.post(
       return res.status(400).json({ error: 'Move is off the board' })
     }
 
+    // Teaching Game mode grades the move live. The "before" half has to run
+    // ahead of the move itself — it needs the position as it stood beforehand.
+    const judging = game.mode === 'teaching' ? await judgeHumanMoveBefore(game) : null
+
     try {
       await game.engine.play(game.humanColor, y, x)
     } catch (err) {
@@ -140,11 +149,13 @@ app.post(
       return res.status(422).json({ error: err.message || 'Illegal move' })
     }
 
+    const quality = judging ? await judgeHumanMoveAfter(game, judging, y, x) : null
+
     game.consecutivePasses = 0
     game.moves.push({ color: game.humanColor, y, x })
 
     const reply = await playEngineReply(game)
-    res.json({ ai: reply, game: serialize(game) })
+    res.json({ ai: reply, game: serialize(game), quality })
   }),
 )
 

@@ -856,6 +856,20 @@ body {
   color: var(--text-muted);
 }
 
+.mode-card {
+  margin-top: 4px;
+  border: 1px solid transparent;
+}
+
+.mode-card.on {
+  border-color: var(--accent);
+  box-shadow: 0 2px 12px rgba(var(--accent-rgb), 0.25);
+}
+
+.mode-card-check {
+  color: var(--accent-strong);
+}
+
 /* Exact opponent-strength control, replacing a row of named difficulty
    buttons with one precise slider. */
 .strength-picker {
@@ -1171,6 +1185,12 @@ body {
   line-height: 1.5;
   color: var(--text);
   animation: remark-in 0.3s ease-out;
+}
+
+.teaching-log {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .opponent-remark-who {

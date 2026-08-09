@@ -65,7 +65,12 @@ export function difficultyForKyu(kyu) {
 const ENGINE_LEVEL = 10
 const KOMI = 6.5
 
-export async function createGame({ targetKyu = 20, boardSize = 9, humanColor = 'black' } = {}) {
+export async function createGame({
+  targetKyu = 20,
+  boardSize = 9,
+  humanColor = 'black',
+  mode = 'play',
+} = {}) {
   const safeTargetKyu = Math.min(MAX_KYU, Math.max(MIN_KYU, Number(targetKyu)))
   const profile = difficultyForKyu(safeTargetKyu)
   const human = humanColor === 'white' ? 'white' : 'black'
@@ -83,6 +88,10 @@ export async function createGame({ targetKyu = 20, boardSize = 9, humanColor = '
     aiColor: human === 'black' ? 'white' : 'black',
     boardSize,
     komi: KOMI,
+    // 'teaching' turns on live per-move grading in the /move route below —
+    // kept off by default since it costs two extra engine queries per human
+    // move that plain Play mode has no use for.
+    mode: mode === 'teaching' ? 'teaching' : 'play',
     moves: [],
     consecutivePasses: 0,
     over: false,
@@ -120,7 +129,7 @@ const MISTAKE_THRESHOLD = 3
 const INACCURACY_THRESHOLD = 1
 
 /** Which bucket a point loss falls into — the same cutoffs used everywhere below. */
-function tierForLoss(loss) {
+export function tierForLoss(loss) {
   if (loss >= BLUNDER_THRESHOLD) return 'blunder'
   if (loss >= MISTAKE_THRESHOLD) return 'mistake'
   if (loss >= INACCURACY_THRESHOLD) return 'inaccuracy'
@@ -247,22 +256,62 @@ export async function reviewGame(game) {
 const PASS_DEFERRAL_VALUE = 6
 
 export async function chooseEngineMove(game, color) {
-  if (game.mistakeChance <= 0) return game.engine.genmove(color)
+  if (game.mistakeChance <= 0) {
+    const move = await game.engine.genmove(color)
+    // Full strength always plays its own best answer, no weakening involved.
+    return { ...move, wasTopChoice: true }
+  }
 
   const candidates = await game.engine.topMoves(color)
   if (candidates.length === 0 || candidates[0].value < PASS_DEFERRAL_VALUE) {
-    return game.engine.genmove(color)
+    const move = await game.engine.genmove(color)
+    return { ...move, wasTopChoice: true }
   }
 
   let choice = candidates[0]
+  let wasTopChoice = true
   if (Math.random() < game.mistakeChance && candidates.length > 1) {
     const pool = candidates.slice(1, Math.max(2, game.mistakeDepth))
     choice = pool[Math.floor(Math.random() * pool.length)]
+    wasTopChoice = false
   }
 
   // topMoves only suggests, so the move has to be played explicitly.
   await game.engine.play(color, choice.y, choice.x)
-  return { y: choice.y, x: choice.x }
+  // wasTopChoice: true here means "declined to weaken this time" — a real,
+  // honest signal Teaching Game mode uses to narrate the AI's own play.
+  return { y: choice.y, x: choice.x, wasTopChoice }
+}
+
+/**
+ * Teaching Game mode only: grade the human's move live against the same
+ * engine actually playing the game (not reviewGame's throwaway replay
+ * engine), so the chat bar can react to a real mistake or a genuinely good
+ * move as it happens rather than waiting for the post-game review.
+ *
+ * Two calls, both read-only against the current position, so they're safe to
+ * run before the move itself is played — `judgeHumanMoveAfter` below is what
+ * has to run after.
+ */
+const GOOD_MOVE_CANDIDATE_DEPTH = 3
+
+export async function judgeHumanMoveBefore(game) {
+  const [candidates, estimate] = await Promise.all([
+    game.engine.topMoves(game.humanColor),
+    game.engine.send('estimate_score'),
+  ])
+  return { candidates: candidates.slice(0, GOOD_MOVE_CANDIDATE_DEPTH), before: parseEstimate(estimate) }
+}
+
+export async function judgeHumanMoveAfter(game, judging, y, x) {
+  const after = parseEstimate(await game.engine.send('estimate_score'))
+  const sign = game.humanColor === 'black' ? 1 : -1
+  const delta = (after - judging.before) * sign
+  const lost = Math.max(0, Math.round(-delta * 10) / 10)
+  // Rank of the played point among the engine's own top candidates (0 = its
+  // best move), or null if it wasn't one the engine was seriously considering.
+  const candidateRank = judging.candidates.findIndex((c) => c.y === y && c.x === x)
+  return { lost, tier: tierForLoss(lost), candidateRank: candidateRank === -1 ? null : candidateRank }
 }
 
 export function getGame(id) {

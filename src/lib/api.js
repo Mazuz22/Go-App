@@ -54,8 +54,8 @@ async function request(path, { method = 'GET', body } = {}) {
   return payload
 }
 
-export const createGame = ({ targetKyu, boardSize = 9, humanColor = 'black' }) =>
-  request('/games', { method: 'POST', body: { targetKyu, boardSize, humanColor } })
+export const createGame = ({ targetKyu, boardSize = 9, humanColor = 'black', mode = 'play' }) =>
+  request('/games', { method: 'POST', body: { targetKyu, boardSize, humanColor, mode } })
 
 export const getGame = (id) => request(`/games/${id}`)
 

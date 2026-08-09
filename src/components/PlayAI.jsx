@@ -5,6 +5,7 @@ import Logo from './Logo'
 import { HintIcon, PassIcon } from './icons'
 import * as api from '../lib/api'
 import { commentOn } from '../lib/commentary'
+import { noteForAiMove, noteForHumanMove } from '../lib/teachingCommentary'
 import { describeOpening } from '../lib/coords'
 import {
   formatRank,
@@ -55,6 +56,12 @@ export default function PlayAI({ onExit, rank, onRankChange, quickStart = false 
   // Opponent strength is adjustable there too, but as an optional disclosure
   // rather than a step you have to pass through.
   const [format, setFormat] = useState(null)
+  // 'play' (default, silent) or 'teaching' (live chat-bar notes grounded in
+  // real per-move analysis) — never set by the one-tap quick-start path,
+  // only chosen explicitly on the full picker below.
+  const [mode, setMode] = useState('play')
+  const [teachingLog, setTeachingLog] = useState([])
+  const teachingLogIdRef = useRef(0)
   // Defaults to the player's own live rating, so doing nothing at all means
   // "match me automatically" — dragging it is an explicit, deliberate choice.
   const [targetKyu, setTargetKyu] = useState(rank.kyu)
@@ -260,6 +267,7 @@ export default function PlayAI({ onExit, rank, onRankChange, quickStart = false 
         targetKyu,
         boardSize: chosenFormat.boardSize,
         humanColor: color,
+        mode,
       })
       setGameId(game.id)
       setMoves(game.moves ?? [])
@@ -280,10 +288,23 @@ export default function PlayAI({ onExit, rank, onRankChange, quickStart = false 
     }
   }
 
+  // One shared narrator voice for the whole chat log — a teaching game is one
+  // pro sitting next to you talking through both sides, not a back-and-forth.
+  const addTeachingNote = (text) => {
+    if (!text) return
+    teachingLogIdRef.current += 1
+    setTeachingLog((log) => [...log, { id: teachingLogIdRef.current, text }])
+  }
+
   /** Mirror the engine's reply onto the local tenuki board. */
   const applyReply = (board, payload) => {
-    const { ai, game } = payload
+    const { ai, game, quality } = payload
     setMoves(game?.moves ?? [])
+
+    if (mode === 'teaching') {
+      addTeachingNote(noteForHumanMove(quality))
+      addTeachingNote(noteForAiMove(ai))
+    }
 
     if (ai?.resign) {
       setResult({ winner: humanColor, reason: 'resignation', detail: 'Your opponent resigned' })
@@ -460,6 +481,20 @@ export default function PlayAI({ onExit, rank, onRankChange, quickStart = false 
             ))}
           </div>
 
+          <button
+            type="button"
+            className={`level-card mode-card${mode === 'teaching' ? ' on' : ''}`}
+            onClick={() => setMode((m) => (m === 'teaching' ? 'play' : 'teaching'))}
+            aria-pressed={mode === 'teaching'}
+          >
+            <span className="level-name">
+              Teaching game {mode === 'teaching' && <span className="mode-card-check">✓</span>}
+            </span>
+            <span className="level-blurb">
+              I'll talk through your moves and mine as we go, instead of staying quiet until the end.
+            </span>
+          </button>
+
           <div className="strength-panel">
             <button
               type="button"
@@ -520,6 +555,7 @@ export default function PlayAI({ onExit, rank, onRankChange, quickStart = false 
     setReview(null)
     rankUpdatedRef.current = false
     setRemark(null)
+    setTeachingLog([])
     setError(null)
     setGameGone(false)
     setPostGameView('board')
@@ -589,6 +625,7 @@ export default function PlayAI({ onExit, rank, onRankChange, quickStart = false 
         </button>
         <span className="tutorial-progress">
           {format.boardSize}×{format.boardSize} · {AI_LEVELS[aiLevelForKyu(targetKyu)].name}
+          {mode === 'teaching' ? ' · Teaching game' : ''}
         </span>
       </header>
 
@@ -615,7 +652,7 @@ export default function PlayAI({ onExit, rank, onRankChange, quickStart = false 
           setTurn(game.currentPlayer())
           const state = game.currentState()
           const prev = prevStateRef.current
-          if (prev && state.moveNumber > prev.moveNumber) {
+          if (mode !== 'teaching' && prev && state.moveNumber > prev.moveNumber) {
             const line = commentOn({
               prev,
               state,
@@ -731,11 +768,32 @@ export default function PlayAI({ onExit, rank, onRankChange, quickStart = false 
               </div>
             )}
 
-            {!thinking && !error && !hint && remark && (
-              <p className="opponent-remark">
-                <span className="opponent-remark-who">{AI_LEVELS[aiLevelForKyu(targetKyu)].name}</span>
-                {remark}
-              </p>
+            {mode === 'teaching' ? (
+              !thinking &&
+              !error &&
+              !hint &&
+              teachingLog.length > 0 && (
+                <div className="teaching-log" aria-live="polite">
+                  {teachingLog.slice(-4).map((entry) => (
+                    <p key={entry.id} className="opponent-remark">
+                      <span className="opponent-remark-who">
+                        {AI_LEVELS[aiLevelForKyu(targetKyu)].name}
+                      </span>
+                      {entry.text}
+                    </p>
+                  ))}
+                </div>
+              )
+            ) : (
+              !thinking &&
+              !error &&
+              !hint &&
+              remark && (
+                <p className="opponent-remark">
+                  <span className="opponent-remark-who">{AI_LEVELS[aiLevelForKyu(targetKyu)].name}</span>
+                  {remark}
+                </p>
+              )
             )}
 
             <div className="go-board-toolbar">
