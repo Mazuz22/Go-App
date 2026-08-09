@@ -88,3 +88,50 @@ export async function explainMistakes({ boardSize, humanColor, moves, mistakes }
     ? mistakes.map((m, i) => ({ moveNumber: m.moveNumber, note: paragraphs[i] }))
     : mistakes.map((m) => ({ moveNumber: m.moveNumber, note: paragraphs.join(' ') }))
 }
+
+const PUZZLE_SYSTEM_PROMPT = [
+  'You are a patient Go teacher helping a beginner who just tried a puzzle and got it wrong.',
+  "You're given the puzzle's starting position, its objective, and the point the student played.",
+  'Write one short, encouraging paragraph (2-3 plain sentences) explaining what idea the move misses —',
+  'e.g. it leaves a liberty open, does not deny the group a second eye, or misreads which stones are',
+  'connected. Ground everything only in the position given. Do NOT reveal the exact correct coordinate —',
+  'the student is about to retry the same puzzle, so name the idea they should look for, not the answer.',
+  'Reply with exactly one paragraph, no headers, no move numbers, no markdown.',
+].join(' ')
+
+/**
+ * @param boardSize    puzzle board size
+ * @param stones       starting position, [{color, y, x}]
+ * @param prompt       the puzzle's stated objective, e.g. "Capture the marked stone."
+ * @param playedColor  colour the student played
+ * @param playedPoint  {y, x} the student actually played
+ * @returns a single explanatory paragraph
+ */
+export async function explainPuzzleMiss({ boardSize, stones, prompt, playedColor, playedPoint }) {
+  const position = stones
+    .map((s) => `${s.color === 'black' ? 'B' : 'W'} ${toGtp(s.y, s.x, boardSize)}`)
+    .join('  ')
+  const played = toGtp(playedPoint.y, playedPoint.x, boardSize)
+  const color = playedColor === 'black' ? 'Black' : 'White'
+
+  const userPrompt = [
+    `Board size: ${boardSize}x${boardSize}`,
+    `Starting position: ${position}`,
+    `Objective: ${prompt}`,
+    `${color} played ${played}, which did not solve it.`,
+  ].join('\n')
+
+  const response = await getClient().messages.create({
+    model: MODEL,
+    max_tokens: 512,
+    output_config: { effort: 'medium' },
+    system: PUZZLE_SYSTEM_PROMPT,
+    messages: [{ role: 'user', content: userPrompt }],
+  })
+
+  if (response.stop_reason === 'refusal') {
+    throw new Error('The coach declined to comment on this puzzle.')
+  }
+
+  return response.content.find((b) => b.type === 'text')?.text.trim() ?? ''
+}

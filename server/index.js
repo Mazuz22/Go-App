@@ -15,7 +15,7 @@ import {
   MIN_KYU,
   MAX_KYU,
 } from './games.js'
-import { explainMistakes } from './coach.js'
+import { explainMistakes, explainPuzzleMiss } from './coach.js'
 
 const app = express()
 app.use(cors())
@@ -238,6 +238,38 @@ app.post(
       mistakes,
     })
     res.json({ notes })
+  }),
+)
+
+// Puzzles are static client-side data (src/puzzles.js) with no server-tracked
+// game, so this endpoint takes the position directly rather than a game id —
+// same trust boundary as /coach above (feeds straight into a Claude prompt),
+// so it gets the same shape of validation.
+app.post(
+  '/api/puzzles/explain',
+  route(async (req, res) => {
+    const { boardSize, stones, prompt, playedColor, playedPoint } = req.body ?? {}
+
+    if (!Number.isInteger(boardSize) || boardSize < 5 || boardSize > 19) {
+      return res.status(400).json({ error: 'boardSize must be an integer 5-19' })
+    }
+    const onBoard = (n) => Number.isInteger(n) && n >= 0 && n < boardSize
+    const isValidStone = (s) => s && (s.color === 'black' || s.color === 'white') && onBoard(s.y) && onBoard(s.x)
+    if (!Array.isArray(stones) || stones.length === 0 || stones.length > 60 || !stones.every(isValidStone)) {
+      return res.status(400).json({ error: 'stones must be a non-empty array of valid {color, y, x}' })
+    }
+    if (typeof prompt !== 'string' || prompt.length === 0 || prompt.length > 300) {
+      return res.status(400).json({ error: 'prompt must be a string up to 300 characters' })
+    }
+    if (playedColor !== 'black' && playedColor !== 'white') {
+      return res.status(400).json({ error: 'playedColor must be black or white' })
+    }
+    if (!playedPoint || !onBoard(playedPoint.y) || !onBoard(playedPoint.x)) {
+      return res.status(400).json({ error: 'playedPoint must be a valid {y, x} on the board' })
+    }
+
+    const note = await explainPuzzleMiss({ boardSize, stones, prompt, playedColor, playedPoint })
+    res.json({ note })
   }),
 )
 

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import GoBoard from './GoBoard'
 import Logo from './Logo'
 import PUZZLES from '../puzzles'
+import * as api from '../lib/api'
 import {
   DEFAULT_PUZZLE_KYU,
   formatRank,
@@ -42,6 +43,10 @@ export default function Puzzles({ onExit }) {
   const [feedback, setFeedback] = useState(null)
   const [solved, setSolved] = useState(false)
   const [attempt, setAttempt] = useState(0)
+  const [missedPoint, setMissedPoint] = useState(null)
+  const [explanation, setExplanation] = useState(null)
+  const [explaining, setExplaining] = useState(false)
+  const [explainError, setExplainError] = useState(null)
   const timer = useRef(null)
   // Only the first attempt at a puzzle counts toward the rating — retrying
   // after a miss is still allowed (and still needed to move on), it just
@@ -79,9 +84,31 @@ export default function Puzzles({ onExit }) {
       return
     }
     setFeedback({ type: 'error', text: puzzle.hint ?? 'Not quite — try again.' })
+    setMissedPoint(playedPoint)
+    setExplanation(null)
+    setExplainError(null)
     // Deferred so we're not re-entering tenuki's render from inside its own
     // postRender callback, and so the move is briefly visible first.
     timer.current = setTimeout(() => game.undo(), REVERT_DELAY_MS)
+  }
+
+  const askWhy = async () => {
+    setExplaining(true)
+    setExplainError(null)
+    try {
+      const { note } = await api.explainPuzzleMiss({
+        boardSize: 9,
+        stones: puzzle.setup.stones,
+        prompt: puzzle.prompt,
+        playedColor: studentColor,
+        playedPoint: missedPoint,
+      })
+      setExplanation(note)
+    } catch (err) {
+      setExplainError(err.message)
+    } finally {
+      setExplaining(false)
+    }
   }
 
   const handleReset = () => {
@@ -89,6 +116,9 @@ export default function Puzzles({ onExit }) {
     setFeedback(null)
     setSolved(false)
     setAttempt((n) => n + 1)
+    setMissedPoint(null)
+    setExplanation(null)
+    setExplainError(null)
   }
 
   const advance = () => {
@@ -96,6 +126,9 @@ export default function Puzzles({ onExit }) {
     setFeedback(null)
     setSolved(false)
     setAttempt((n) => n + 1)
+    setMissedPoint(null)
+    setExplanation(null)
+    setExplainError(null)
     if (isLastInRound) {
       recentIdsRef.current = [...recentIdsRef.current, ...round.map((p) => p.id)].slice(
         -(ROUND_SIZE * 2),
@@ -115,6 +148,9 @@ export default function Puzzles({ onExit }) {
     setFeedback(null)
     setSolved(false)
     setAttempt((n) => n + 1)
+    setMissedPoint(null)
+    setExplanation(null)
+    setExplainError(null)
   }
 
   if (phase === 'summary') {
@@ -144,6 +180,18 @@ export default function Puzzles({ onExit }) {
         <h2>Puzzles</h2>
         <p className="tutorial-task">{puzzle.prompt}</p>
         {feedback && <p className={`tutorial-feedback ${feedback.type}`}>{feedback.text}</p>}
+        {missedPoint && !explanation && (
+          <button
+            type="button"
+            className="ghost-button review-coach-button"
+            onClick={askWhy}
+            disabled={explaining}
+          >
+            {explaining ? 'Asking the coach…' : 'Why was this wrong?'}
+          </button>
+        )}
+        {explainError && <p className="tutorial-feedback error">{explainError}</p>}
+        {explanation && <p className="tutorial-feedback">{explanation}</p>}
       </div>
 
       <GoBoard

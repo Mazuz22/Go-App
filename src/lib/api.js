@@ -71,6 +71,12 @@ export const reviewGame = (id) => request(`/games/${id}/review`, { method: 'POST
 export const explainMistakes = (id, mistakes) =>
   request(`/games/${id}/coach`, { method: 'POST', body: { mistakes } })
 
+export const explainPuzzleMiss = ({ boardSize, stones, prompt, playedColor, playedPoint }) =>
+  request('/puzzles/explain', {
+    method: 'POST',
+    body: { boardSize, stones, prompt, playedColor, playedPoint },
+  })
+
 export const resignGame = (id) => request(`/games/${id}/resign`, { method: 'POST' })
 
 export const timeoutGame = (id, loser) =>
