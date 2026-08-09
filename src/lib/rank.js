@@ -118,6 +118,20 @@ export function formatRank(kyu) {
   return kyu >= 1 ? `${Math.round(kyu)} kyu` : `${Math.abs(Math.round(kyu)) + 1} dan`
 }
 
+/**
+ * Plain-language read on a live kyu/dan number, so a rank change never lands
+ * as a bare, unexplained figure — the same idea AI_LEVELS already gives the
+ * opponent's strength, just phrased about the player instead.
+ */
+export function skillLabelForKyu(kyu) {
+  if (kyu >= 22) return 'Just starting out'
+  if (kyu >= 17) return 'Learning the basics'
+  if (kyu >= 13) return 'Getting comfortable'
+  if (kyu >= 9) return 'Building real skill'
+  if (kyu >= 1) return 'Strong player'
+  return 'Advanced — dan level'
+}
+
 /** Persisted locally for now; Phase 4 moves this to the server with SQLite. */
 export function loadRank() {
   try {

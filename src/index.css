@@ -453,10 +453,17 @@ body {
 
 .game-over-rating {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   gap: 10px;
   margin-top: 14px;
   font-size: 14px;
+}
+
+.game-over-rating-tier {
+  flex-basis: 100%;
+  font-size: 12px;
+  color: var(--text-muted);
 }
 
 .game-over-rating-label {
@@ -577,6 +584,7 @@ body {
 
 .puzzle-round-rating {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   gap: 10px;
   margin: 0 0 6px;

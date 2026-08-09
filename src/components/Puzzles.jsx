@@ -6,6 +6,7 @@ import * as api from '../lib/api'
 import {
   DEFAULT_PUZZLE_KYU,
   formatRank,
+  skillLabelForKyu,
   loadPuzzleRank,
   pickRound,
   savePuzzleRank,
@@ -251,6 +252,7 @@ function RoundSummary({ ratingBefore, ratingAfter, results, onNextRound, onDone 
               {delta > 0 ? '▲' : '▼'} {Math.abs(delta).toFixed(1)}
             </span>
           )}
+          <span className="game-over-rating-tier">{skillLabelForKyu(ratingAfter)}</span>
         </div>
         <p className="puzzle-round-note">
           Only your first try at each puzzle moves the rating — retries still help you solve it,

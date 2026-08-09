@@ -11,7 +11,7 @@
  * settles down over time, and a hard per-attempt cap so no single puzzle can
  * swing it wildly.
  */
-import { MIN_KYU, MAX_KYU, formatRank } from './rank'
+import { MIN_KYU, MAX_KYU, formatRank, skillLabelForKyu } from './rank'
 
 const STORAGE_KEY = 'go-teacher.puzzleRank'
 
@@ -20,7 +20,7 @@ const STORAGE_KEY = 'go-teacher.puzzleRank'
 // uses for the equivalent self-reported experience level.
 export const DEFAULT_PUZZLE_KYU = 20
 
-export { formatRank }
+export { formatRank, skillLabelForKyu }
 
 function expectedScore(playerKyu, puzzleKyu) {
   const gap = puzzleKyu - playerKyu // positive = puzzle is easier than the player

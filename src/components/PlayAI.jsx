@@ -6,7 +6,15 @@ import { HintIcon, PassIcon } from './icons'
 import * as api from '../lib/api'
 import { commentOn } from '../lib/commentary'
 import { describeOpening } from '../lib/coords'
-import { formatRank, AI_LEVELS, aiLevelForKyu, updateRatingAfterGame, MIN_KYU, MAX_KYU } from '../lib/rank'
+import {
+  formatRank,
+  skillLabelForKyu,
+  AI_LEVELS,
+  aiLevelForKyu,
+  updateRatingAfterGame,
+  MIN_KYU,
+  MAX_KYU,
+} from '../lib/rank'
 import { useCountUp } from '../lib/useCountUp'
 
 // No handicap: every game starts from an empty board and the engine is
@@ -679,6 +687,7 @@ export default function PlayAI({ onExit, rank, onRankChange, quickStart = false 
                     <span className={`game-over-rating-delta ${ratingChange.delta > 0 ? 'up' : 'down'}`}>
                       {ratingChange.delta > 0 ? '▲' : '▼'} {Math.abs(ratingChange.delta).toFixed(1)}
                     </span>
+                    <span className="game-over-rating-tier">{skillLabelForKyu(ratingChange.to)}</span>
                   </div>
                 )}
                 <div className="game-over-actions in">
