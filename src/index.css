@@ -519,6 +519,108 @@ body {
 }
 
 /* ---------------------------------------------------------------------------
+   Puzzle round summary — shown every 5 puzzles
+   --------------------------------------------------------------------------- */
+
+.puzzle-round {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 24px calc(32px + env(safe-area-inset-bottom));
+}
+
+.puzzle-round-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  width: 100%;
+  max-width: 360px;
+}
+
+.puzzle-round-mark {
+  margin-bottom: 22px;
+  opacity: 0.5;
+}
+
+.puzzle-round-headline {
+  margin: 0;
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  animation: rise-in 0.4s var(--ease-out) backwards;
+}
+
+.puzzle-round-dots {
+  display: flex;
+  gap: 10px;
+  margin: 18px 0 26px;
+  animation: rise-in 0.4s var(--ease-out) 0.08s backwards;
+}
+
+.puzzle-round-dot {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--bg);
+}
+
+.puzzle-round-dot.hit {
+  background: var(--positive);
+}
+
+.puzzle-round-dot.miss {
+  background: var(--card-border);
+  color: var(--text-muted);
+}
+
+.puzzle-round-rating {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 0 0 6px;
+  font-size: 14px;
+  animation: rise-in 0.4s var(--ease-out) 0.16s backwards;
+}
+
+.puzzle-round-note {
+  margin: 0 0 26px;
+  font-size: 13px;
+  color: var(--text-muted);
+  animation: rise-in 0.4s var(--ease-out) 0.2s backwards;
+}
+
+.puzzle-round-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  animation: rise-in 0.4s var(--ease-out) 0.24s backwards;
+}
+
+.puzzle-round-actions .primary-button,
+.puzzle-round-actions .ghost-button {
+  justify-content: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .puzzle-round-headline,
+  .puzzle-round-dots,
+  .puzzle-round-rating,
+  .puzzle-round-note,
+  .puzzle-round-actions {
+    animation: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------
    Nigiri
    --------------------------------------------------------------------------- */
 

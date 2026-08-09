@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import GoBoard from './GoBoard'
 import Logo from './Logo'
-import PUZZLES from '../puzzles'
+import { ASSESSMENT_PUZZLES as PUZZLES } from '../puzzles'
 import { EXPERIENCE_OPTIONS, kyuFromScore } from '../lib/rank'
 
 // Long enough to see the refuted move before the next puzzle replaces it.
