@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { Game } from 'tenuki'
 import Logo from './Logo'
 import { applySetup } from '../lib/position'
@@ -46,8 +46,11 @@ export default function GoBoard({
   })
   const [hover, setHover] = useState(null)
   // Overlay positions are measured at render time, so a resize would leave them
-  // stale — bump this to recompute when the board changes size.
-  const [, bumpGeometry] = useState(0)
+  // stale — bump this to recompute when the board changes size. Also doubles
+  // as a useMemo key below, so mark positions aren't recomputed on renders
+  // that don't touch geometry (e.g. a count-up ticking 60x/sec during the
+  // end-of-game territory sweep, well after the layout has settled).
+  const [geometryVersion, bumpGeometry] = useState(0)
 
   useEffect(() => {
     const el = boardRef.current
@@ -200,6 +203,26 @@ export default function GoBoard({
   const showReticle = hover && !status.isOver && !locked
   const reticleStyle = showReticle ? pointStyle(hover.y, hover.x) : undefined
 
+  // Memoized so a fast-ticking parent state (the territory sweep's count-up
+  // runs at 60fps) doesn't redo a DOM lookup + two getBoundingClientRect
+  // calls per mark on every single tick, for as many marks as there is
+  // territory to count. `status` is included (not just `marks`/
+  // `geometryVersion`) specifically so this still recomputes on mount and
+  // on every move — the very first render happens before tenuki has laid
+  // out any intersections to measure, and it's `syncStatus`'s setState,
+  // right after `startNewGame` populates the board, that produces the next
+  // render marks can actually position themselves against.
+  const markElements = useMemo(
+    () =>
+      marks.map(({ type = 'triangle', y, x, tone, delayMs }) => {
+        const base = pointStyle(y, x)
+        const style = delayMs != null ? { ...base, animationDelay: `${delayMs}ms` } : base
+        return <Mark key={`${y},${x}`} type={type} tone={tone} style={style} />
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [marks, geometryVersion, status],
+  )
+
   return (
     <div className="go-board-screen">
       {/* Bars are grouped with the board so they hug it as one unit rather
@@ -260,15 +283,10 @@ export default function GoBoard({
             {/* tenuki has no public API for arbitrary board marks, so they're
                 drawn as an overlay using the same intersection geometry as
                 the crosshair. Colour comes from `tone`, not from what's
-                underneath, so it stays legible on stone, wood, or empty. */}
-            {marks.map(({ type = 'triangle', y, x, tone }) => (
-              <Mark
-                key={`${y},${x}`}
-                type={type}
-                tone={tone}
-                style={pointStyle(y, x)}
-              />
-            ))}
+                underneath, so it stays legible on stone, wood, or empty.
+                `delayMs`, when present, staggers a mark's entrance — used by
+                the end-of-game territory sweep. */}
+            {markElements}
 
             {showReticle && (
               <div className="reticle" style={reticleStyle}>
@@ -297,6 +315,18 @@ const QUALITY_COLORS = {
 }
 
 function Mark({ type, style, tone = 'auto' }) {
+  // Called unconditionally (rules of hooks) even though only the SVG marks
+  // below end up using it — see the note further down on why it's stripped
+  // of colons regardless of whether this render needs it.
+  const rawId = useId()
+
+  // Territory is a filled block, not an outline — it's marking ownership of
+  // the point itself, not calling attention to a stone on it — so it renders
+  // as a plain gradient div rather than joining the SVG marks below.
+  if (type === 'territory') {
+    return <div className={`board-territory board-territory-${tone}`} style={style} aria-hidden="true" />
+  }
+
   // A suggestion is the app talking, so it takes the accent colour and gets a
   // halo — a thin dark ring on dark wood is close to invisible. Teaching marks
   // get their own blue gradient instead, readable on stone, wood, or empty
@@ -307,7 +337,7 @@ function Mark({ type, style, tone = 'auto' }) {
   // since there's no reason to find that out from an iPhone bug report.
   const accent = tone === 'accent'
   const qualityColor = QUALITY_COLORS[tone]
-  const gradientId = `mark-gradient-${useId().replace(/:/g, '')}`
+  const gradientId = `mark-gradient-${rawId.replace(/:/g, '')}`
   const stroke = accent ? 'var(--accent-strong)' : (qualityColor ?? `url(#${gradientId})`)
 
   return (

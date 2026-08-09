@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import GoBoard from './GoBoard'
-import GameOver from './GameOver'
+import GameReview from './GameReview'
 import Logo from './Logo'
 import { HintIcon, PassIcon } from './icons'
 import * as api from '../lib/api'
 import { commentOn } from '../lib/commentary'
 import { describeOpening } from '../lib/coords'
 import { formatRank, AI_LEVELS, aiLevelForKyu, updateRatingAfterGame, MIN_KYU, MAX_KYU } from '../lib/rank'
+import { useCountUp } from '../lib/useCountUp'
 
 // No handicap: every game starts from an empty board and the engine is
 // weakened by how it plays (see server/games.js), not by stones given away.
@@ -25,6 +26,20 @@ const FORMATS = [
   { id: 'medium', name: 'Medium', minutes: null, boardSize: 13, blurb: '13×13 — room to make shape. No clock.' },
   { id: 'full', name: 'Full', minutes: 45, boardSize: 19, blurb: '19×19 — the real board, on a 45 minute clock.' },
 ]
+
+const REASON_TEXT = {
+  resignation: 'by resignation',
+  timeout: 'on time',
+  score: 'on the board',
+}
+
+// How the end-of-game territory sweep is paced: total sweep time scales with
+// how many points there are to count, clamped so a tiny territory doesn't
+// feel instant and a huge one doesn't drag.
+const COUNT_DURATION_MS = 900
+const MIN_SWEEP_MS = 650
+const MAX_SWEEP_MS = 2200
+const SWEEP_MS_PER_POINT = 55
 
 export default function PlayAI({ onExit, rank, onRankChange }) {
   // Pre-game is a single screen: pick a board size and the game starts
@@ -51,8 +66,8 @@ export default function PlayAI({ onExit, rank, onRankChange }) {
   const [gameGone, setGameGone] = useState(false)
   const [result, setResult] = useState(null)
   const [ratingChange, setRatingChange] = useState(null)
-  // Fetched once, silently, for the rating calc above — handed to GameOver
-  // so "Review my mistakes" doesn't re-run the same GNU Go analysis.
+  // Fetched once, silently, for the rating calc below — handed to GameReview
+  // so opening "Review my mistakes" doesn't re-run the same GNU Go analysis.
   const [review, setReview] = useState(null)
   const [starting, setStarting] = useState(false)
   const [turn, setTurn] = useState('black')
@@ -60,6 +75,14 @@ export default function PlayAI({ onExit, rank, onRankChange }) {
   const [remark, setRemark] = useState(null)
   const [hint, setHint] = useState(null)
   const [hintLoading, setHintLoading] = useState(false)
+  // Whether the persistent post-game board or the separate mistake-review
+  // screen is showing — see the `postGameView === 'review'` branch below.
+  const [postGameView, setPostGameView] = useState('board')
+  // True while the end-of-game territory blocks are still sweeping across
+  // the board — the win/lose reveal waits for this to finish.
+  const [scoring, setScoring] = useState(false)
+  const [territoryMarks, setTerritoryMarks] = useState([])
+  const [sweepMs, setSweepMs] = useState(COUNT_DURATION_MS)
   const engineRef = useRef(null)
   // Previous board state, so commentary can see what actually changed.
   const prevStateRef = useRef(null)
@@ -155,6 +178,64 @@ export default function PlayAI({ onExit, rank, onRankChange }) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [result])
+
+  // The territory-counting sweep: reads point-by-point ownership straight
+  // from tenuki's own scorer (the same one result.score came from, so the
+  // running count always lands exactly on the final number) and reveals it
+  // across the board a few points at a time instead of the score just
+  // appearing. Only applies to a scored ending — a resignation or timeout
+  // has no territory to count, so the win/lose reveal shows immediately.
+  useEffect(() => {
+    if (!result || result.reason !== 'score') {
+      setScoring(false)
+      return
+    }
+    const board = engineRef.current
+    const territory = board?.territory?.()
+    const combined = territory
+      ? [
+          ...territory.black.map((p) => ({ ...p, color: 'black' })),
+          ...territory.white.map((p) => ({ ...p, color: 'white' })),
+        ].sort((a, b) => a.y - b.y || a.x - b.x)
+      : []
+
+    if (combined.length === 0) {
+      setScoring(false)
+      setTerritoryMarks([])
+      return
+    }
+
+    const duration = Math.max(
+      MIN_SWEEP_MS,
+      Math.min(MAX_SWEEP_MS, combined.length * SWEEP_MS_PER_POINT),
+    )
+    const perPoint = duration / combined.length
+    setTerritoryMarks(
+      combined.map((p, i) => ({
+        type: 'territory',
+        y: p.y,
+        x: p.x,
+        tone: p.color,
+        delayMs: Math.round(i * perPoint),
+      })),
+    )
+    setSweepMs(duration)
+    setScoring(true)
+    // A little past the last block's own entrance transition, so the reveal
+    // doesn't cut off mid-motion.
+    const timer = setTimeout(() => setScoring(false), duration + 260)
+    return () => clearTimeout(timer)
+  }, [result])
+
+  const isScored = Boolean(result?.score)
+  const blackCount = useCountUp(isScored ? result.score.black : 0, {
+    duration: sweepMs,
+    active: isScored,
+  })
+  const whiteCount = useCountUp(isScored ? result.score.white : 0, {
+    duration: sweepMs,
+    active: isScored,
+  })
 
   /**
    * Creates the game and begins. Takes the chosen format directly rather
@@ -294,7 +375,6 @@ export default function PlayAI({ onExit, rank, onRankChange }) {
     setHint(null)
   }, [turn])
 
-
   // Pre-game: one screen. Tapping a board size starts the game immediately —
   // opponent strength defaults to an automatic match against the player's
   // own live rating, and colour is assigned by a coin flip, so doing nothing
@@ -405,6 +485,9 @@ export default function PlayAI({ onExit, rank, onRankChange }) {
     setRemark(null)
     setError(null)
     setGameGone(false)
+    setPostGameView('board')
+    setScoring(false)
+    setTerritoryMarks([])
     setStarted(false)
     setHumanColor(null)
     setGameId(null)
@@ -443,20 +526,18 @@ export default function PlayAI({ onExit, rank, onRankChange }) {
     )
   }
 
-  // The game is over — it gets the whole screen, so a result (a
-  // resignation especially) can't be missed under the board.
-  if (result) {
+  // A separate screen for analysing the finished game, entered from the
+  // "Review my mistakes" action below — it starts the GNU Go review right
+  // away with its own loading state, rather than the persistent board
+  // screen just growing a busy button.
+  if (postGameView === 'review') {
     return (
-      <GameOver
-        result={result}
-        humanColor={humanColor}
-        // The server-side game is kept alive until this screen is left, so the
-        // review can replay it.
+      <GameReview
         gameId={gameId}
         moves={moves}
-        ratingChange={ratingChange}
         precomputedReview={review}
         boardSize={format.boardSize}
+        onBack={() => setPostGameView('board')}
         onHome={onExit}
         onRematch={resetForNewGame}
       />
@@ -477,7 +558,15 @@ export default function PlayAI({ onExit, rank, onRankChange }) {
       <GoBoard
         boardSize={format.boardSize}
         clocks={clocks}
-        marks={hint && !hint.noMove ? [{ type: 'circle', y: hint.y, x: hint.x, tone: 'accent' }] : []}
+        // Once the game ends in a score, the hint mark hands off to the
+        // territory sweep — the board stays exactly as played, no reset.
+        marks={
+          result
+            ? territoryMarks
+            : hint && !hint.noMove
+              ? [{ type: 'circle', y: hint.y, x: hint.x, tone: 'accent' }]
+              : []
+        }
         players={{
           [humanColor]: 'You',
           [`${humanColor}Detail`]: `${humanColor === 'black' ? 'Black' : 'White'} · ${formatRank(rank.kyu)}`,
@@ -516,49 +605,118 @@ export default function PlayAI({ onExit, rank, onRankChange }) {
       />
 
       <div className="tutorial-footer">
-        {thinking && (
-          <p className="tutorial-feedback info">
-            {AI_LEVELS[aiLevelForKyu(targetKyu)].name} is thinking…
-          </p>
-        )}
-        {error && <p className="tutorial-feedback error">{error}</p>}
+        {result ? (
+          // The board above still shows the finished position (plus, for a
+          // scored ending, the territory sweep) — the conclusion is a panel
+          // under it, not a screen that replaces it.
+          <div className={`game-over ${result.winner === humanColor ? 'won' : 'lost'}`}>
+            <Logo size="md" className="game-over-mark" />
 
-        {hint && (
-          <div className="hint-bar">
-            <span className="hint-bar-label">Hint</span>
-            <div className="hint-bar-body">
-              <span className="hint-bar-why">
-                {hint.noMove
-                  ? 'No move here is worth much anymore — this is a good place to pass.'
-                  : describeOpening(hint, format.boardSize, hint.moveNumber) ??
-                    'Best move marked on the board.'}
-              </span>
-            </div>
+            {isScored && (
+              <div className="game-over-score">
+                <div className="game-over-score-side">
+                  <span className="game-over-score-label">Black</span>
+                  <span className="game-over-score-value">{blackCount}</span>
+                </div>
+                <div className="game-over-score-divider" />
+                <div className="game-over-score-side">
+                  <span className="game-over-score-label">White</span>
+                  <span className="game-over-score-value">{whiteCount}</span>
+                </div>
+              </div>
+            )}
+
+            {scoring ? (
+              <p className="tutorial-feedback info">Counting the board…</p>
+            ) : (
+              <>
+                <div
+                  className={`game-over-stone ${result.winner} in`}
+                  aria-hidden="true"
+                />
+                <h1 className="game-over-headline in">
+                  {result.winner === humanColor ? 'You win' : 'You lose'}
+                </h1>
+                <p className="game-over-reason in">
+                  {result.winner === 'black' ? 'Black' : 'White'} wins {REASON_TEXT[result.reason] ?? ''}
+                  {result.detail ? ` · ${result.detail}` : ''}
+                </p>
+                {ratingChange && (
+                  <div className="game-over-rating in">
+                    <span className="game-over-rating-label">Rating</span>
+                    <span className="game-over-rating-value">
+                      {formatRank(ratingChange.from)} → {formatRank(ratingChange.to)}
+                    </span>
+                    <span className={`game-over-rating-delta ${ratingChange.delta > 0 ? 'up' : 'down'}`}>
+                      {ratingChange.delta > 0 ? '▲' : '▼'} {Math.abs(ratingChange.delta).toFixed(1)}
+                    </span>
+                  </div>
+                )}
+                <div className="game-over-actions in">
+                  <button
+                    type="button"
+                    className="ghost-button"
+                    onClick={() => setPostGameView('review')}
+                  >
+                    Review my mistakes
+                  </button>
+                  <button type="button" className="primary-button" onClick={resetForNewGame}>
+                    Play again
+                  </button>
+                  <button type="button" className="ghost-button" onClick={onExit}>
+                    Home
+                  </button>
+                </div>
+              </>
+            )}
           </div>
-        )}
+        ) : (
+          <>
+            {thinking && (
+              <p className="tutorial-feedback info">
+                {AI_LEVELS[aiLevelForKyu(targetKyu)].name} is thinking…
+              </p>
+            )}
+            {error && <p className="tutorial-feedback error">{error}</p>}
 
-        {!thinking && !error && !hint && remark && (
-          <p className="opponent-remark">
-            <span className="opponent-remark-who">{AI_LEVELS[aiLevelForKyu(targetKyu)].name}</span>
-            {remark}
-          </p>
-        )}
+            {hint && (
+              <div className="hint-bar">
+                <span className="hint-bar-label">Hint</span>
+                <div className="hint-bar-body">
+                  <span className="hint-bar-why">
+                    {hint.noMove
+                      ? 'No move here is worth much anymore — this is a good place to pass.'
+                      : describeOpening(hint, format.boardSize, hint.moveNumber) ??
+                        'Best move marked on the board.'}
+                  </span>
+                </div>
+              </div>
+            )}
 
-        <div className="go-board-toolbar">
-          <button
-            type="button"
-            className="hint"
-            onClick={handleHint}
-            disabled={thinking || hintLoading || turn !== humanColor}
-          >
-            <HintIcon />
-            {hintLoading ? '…' : 'Hint'}
-          </button>
-          <button type="button" onClick={handlePass} disabled={thinking}>
-            <PassIcon />
-            Pass
-          </button>
-        </div>
+            {!thinking && !error && !hint && remark && (
+              <p className="opponent-remark">
+                <span className="opponent-remark-who">{AI_LEVELS[aiLevelForKyu(targetKyu)].name}</span>
+                {remark}
+              </p>
+            )}
+
+            <div className="go-board-toolbar">
+              <button
+                type="button"
+                className="hint"
+                onClick={handleHint}
+                disabled={thinking || hintLoading || turn !== humanColor}
+              >
+                <HintIcon />
+                {hintLoading ? '…' : 'Hint'}
+              </button>
+              <button type="button" onClick={handlePass} disabled={thinking}>
+                <PassIcon />
+                Pass
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   )

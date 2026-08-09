@@ -293,12 +293,14 @@ body {
    Game over
    --------------------------------------------------------------------------- */
 
+/* Lives inline in PlayAI's .tutorial-footer, below the still-visible final
+   board — not a full-screen takeover, so the played-out position (and, for
+   a scored ending, the territory sweep) stays in view through the reveal. */
 .game-over {
-  flex: 1;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  padding: 32px 24px calc(32px + env(safe-area-inset-bottom));
+  width: 100%;
 }
 
 .game-over-inner {
@@ -971,9 +973,51 @@ body {
    Post-game review
    --------------------------------------------------------------------------- */
 
+/* Full-screen while GameReview waits on reviewGame() — usually brief since
+   PlayAI already kicks the same fetch off silently in the background, but
+   worth a real loading state for whenever it isn't done yet. */
+.review-loading {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 32px 24px calc(32px + env(safe-area-inset-bottom));
+  text-align: center;
+}
+
+.review-loading-mark {
+  animation: review-loading-pulse 1.8s ease-in-out infinite;
+}
+
+.review-loading-text {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+@keyframes review-loading-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.7; }
+  50% { transform: scale(1.08); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .review-loading-mark {
+    animation: none;
+  }
+}
+
+.review-body {
+  width: 100%;
+  max-width: var(--bar-max);
+  margin: 0 auto;
+  padding: 4px 16px 0;
+}
+
 .review {
   width: 100%;
-  margin-top: 26px;
+  margin-top: 10px;
   padding: 16px 18px;
   text-align: left;
   background: var(--card-bg);
@@ -1661,4 +1705,44 @@ main {
 
 .move-counter {
   padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* End-of-game territory sweep: a filled, gradient block per owned point
+   (see GoBoard <Mark type="territory">), staggered in via animation-delay
+   set per-mark in PlayAI.jsx so it reads as counting across the board. */
+.board-territory {
+  position: absolute;
+  top: var(--y);
+  left: var(--x);
+  width: calc(var(--stone-size) * 0.72);
+  height: calc(var(--stone-size) * 0.72);
+  border-radius: 5px;
+  pointer-events: none;
+  /* Base transform the animation reverts to once it finishes (no `forwards`
+     needed — translate-only is visually identical to translate + scale(1),
+     the keyframe's end state), same pattern as .board-mark below. */
+  transform: translate(-50%, -50%);
+  animation: territory-in 0.36s var(--ease-spring) backwards;
+}
+
+.board-territory-black {
+  background: linear-gradient(155deg, #52565f 0%, #17181c 75%);
+  box-shadow: 0 2px 7px rgba(0, 0, 0, 0.4);
+}
+
+.board-territory-white {
+  background: linear-gradient(155deg, #ffffff 0%, #d3cfc2 80%);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.22);
+}
+
+@keyframes territory-in {
+  from { opacity: 0; transform: translate(-50%, -50%) scale(0.3); }
+  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .board-territory {
+    animation: none;
+    transform: translate(-50%, -50%);
+  }
 }
