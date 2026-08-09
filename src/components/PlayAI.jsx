@@ -44,6 +44,11 @@ export default function PlayAI({ onExit, rank, onRankChange }) {
   const [moves, setMoves] = useState([])
   const [thinking, setThinking] = useState(false)
   const [error, setError] = useState(null)
+  // Set when the server no longer knows this game (e.g. it restarted mid-game
+  // — games live in memory only, see server/games.js). Distinct from a plain
+  // `error`: the board can't recover on its own, so it needs its own screen
+  // rather than a dead board sitting behind an inline error line.
+  const [gameGone, setGameGone] = useState(false)
   const [result, setResult] = useState(null)
   const [ratingChange, setRatingChange] = useState(null)
   // Fetched once, silently, for the rating calc above — handed to GameOver
@@ -231,13 +236,14 @@ export default function PlayAI({ onExit, rank, onRankChange }) {
       const payload = await api.playMove(gameId, playedPoint.y, playedPoint.x)
       applyReply(game, payload)
     } catch (err) {
+      game.undo()
       // The server (GNU Go) is authoritative on legality; if it refuses, roll
       // the local board back so the two can't drift apart.
       if (err.status === 422) {
-        game.undo()
         setError('That move is not legal.')
+      } else if (err.status === 404) {
+        setGameGone(true)
       } else {
-        game.undo()
         setError(err.message)
       }
     } finally {
@@ -254,7 +260,8 @@ export default function PlayAI({ onExit, rank, onRankChange }) {
       const payload = await api.passMove(gameId)
       applyReply(board, payload)
     } catch (err) {
-      setError(err.message)
+      if (err.status === 404) setGameGone(true)
+      else setError(err.message)
     } finally {
       setThinking(false)
     }
@@ -275,7 +282,8 @@ export default function PlayAI({ onExit, rank, onRankChange }) {
           : { moveNumber: data.moveNumber, noMove: true },
       )
     } catch (err) {
-      setError(err.message)
+      if (err.status === 404) setGameGone(true)
+      else setError(err.message)
     } finally {
       setHintLoading(false)
     }
@@ -387,6 +395,54 @@ export default function PlayAI({ onExit, rank, onRankChange }) {
     )
   }
 
+  // Shared by a normal rematch and by recovering from a vanished game — both
+  // just want back to the pre-game screen with a clean slate.
+  const resetForNewGame = () => {
+    setResult(null)
+    setRatingChange(null)
+    setReview(null)
+    rankUpdatedRef.current = false
+    setRemark(null)
+    setError(null)
+    setGameGone(false)
+    setStarted(false)
+    setHumanColor(null)
+    setGameId(null)
+    setOpeningMove(null)
+    setMoves([])
+    prevStateRef.current = null
+    lastRemarkMoveRef.current = null
+  }
+
+  // The server keeps games in memory only (see server/games.js) — a restart
+  // (deploy, crash, free-tier idle spin-down) wipes them mid-game. When that
+  // happens there's no way to keep playing, so this replaces the board
+  // outright rather than leaving a dead position sitting behind an error line
+  // with Hint/Pass buttons that would just fail the same way.
+  if (gameGone) {
+    return (
+      <div className="level-select">
+        <header className="tutorial-header">
+          <button type="button" className="link-button" onClick={onExit}>
+            ← Home
+          </button>
+        </header>
+        <div className="level-select-body stagger">
+          <Logo size="md" className="screen-mark" />
+          <h2>This game ended unexpectedly</h2>
+          <p className="level-select-note">
+            The connection to it was lost, most likely because the server
+            restarted. Nothing about your rating changed — start a new game
+            to keep playing.
+          </p>
+          <button type="button" className="primary-button" onClick={resetForNewGame}>
+            Start a new game
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   // The game is over — it gets the whole screen, so a result (a
   // resignation especially) can't be missed under the board.
   if (result) {
@@ -402,21 +458,7 @@ export default function PlayAI({ onExit, rank, onRankChange }) {
         precomputedReview={review}
         boardSize={format.boardSize}
         onHome={onExit}
-        onRematch={() => {
-          setResult(null)
-          setRatingChange(null)
-          setReview(null)
-          rankUpdatedRef.current = false
-          setRemark(null)
-          setError(null)
-          setStarted(false)
-          setHumanColor(null)
-          setGameId(null)
-          setOpeningMove(null)
-          setMoves([])
-          prevStateRef.current = null
-          lastRemarkMoveRef.current = null
-        }}
+        onRematch={resetForNewGame}
       />
     )
   }
