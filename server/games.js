@@ -200,6 +200,18 @@ export async function reviewGame(game) {
     for (let i = 0; i < moves.length; i += 1) {
       const move = moves[i]
       if (move.resign) break
+
+      // The engine's own top candidate has to be asked for *before* the human's
+      // move is played — GNU Go has no undo, so once the move lands there's no
+      // going back to query what it would have preferred instead. Only human
+      // moves need this; it's discarded below for anything that isn't flagged
+      // a mistake, but has to be fetched here regardless since the flag itself
+      // isn't known until the loss is computed just after.
+      const bestCandidate =
+        move.color === game.humanColor && !move.pass
+          ? (await engine.topMoves(move.color))[0] ?? null
+          : null
+
       if (move.pass) await engine.pass(move.color)
       else await engine.play(move.color, move.y, move.x)
 
@@ -217,6 +229,14 @@ export async function reviewGame(game) {
           x: move.x,
           lost: loss,
           tier: tierForLoss(loss),
+          // Only worth showing when it's actually a different point — GNU Go's
+          // top candidate can coincide with what the human played even when
+          // the score still moved against them (a group's life/death status
+          // resolving is a separate effect from move-generation ranking).
+          betterMove:
+            bestCandidate && (bestCandidate.y !== move.y || bestCandidate.x !== move.x)
+              ? { y: bestCandidate.y, x: bestCandidate.x }
+              : null,
         })
       }
       before = after

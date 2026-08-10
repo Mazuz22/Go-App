@@ -16,15 +16,39 @@
  * to verify with confidence from text output alone — ladders, nets, semeai,
  * multi-step classical eye shapes — are intentionally left out of this round
  * rather than risk shipping a puzzle whose "solution" isn't actually correct.
+ *
+ * `category` is a short tactical label (see CATEGORY_LABELS below) shown as a
+ * badge in Puzzles.jsx, separate from the prose `prompt`.
+ *
+ * On multi-solution checking: most puzzles here already accept *any* move
+ * that reaches the required board state (e.g. `state.whiteStonesCaptured`, or
+ * a stone's final liberty count) rather than one fixed coordinate — those
+ * naturally accept every legitimate solving move already, nothing further
+ * needed. `atPoint`/`atAnyPoint` below exist for the other kind: puzzles
+ * where the objective genuinely can only be judged by which point was played
+ * (the life/kill puzzles). Every one of those currently has exactly one
+ * correct vital point — a straight three-space eye only splits into two eyes
+ * at its centre — so `atAnyPoint` isn't used by anything yet, but is here
+ * ready for the next puzzle that legitimately has more than one.
  */
 
 const B = (y, x) => ({ color: 'black', y, x })
 const W = (y, x) => ({ color: 'white', y, x })
 const mark = (y, x, type = 'triangle') => ({ type, y, x })
+const atPoint = (y, x) => (playedPoint) => playedPoint?.y === y && playedPoint?.x === x
+export const atAnyPoint = (points) => (playedPoint) =>
+  points.some(([y, x]) => playedPoint?.y === y && playedPoint?.x === x)
+
+export const CATEGORY_LABELS = {
+  capture: 'Capture',
+  atari: 'Atari',
+  'life-death': 'Life & death',
+}
 
 const PUZZLES = [
   {
     id: 'p-capture',
+    category: 'capture',
     difficulty: 27,
     prompt: 'Black to play. Capture the marked stone.',
     setup: { toMove: 'black', stones: [W(4, 4), B(3, 4), B(5, 4), B(4, 3)] },
@@ -34,6 +58,7 @@ const PUZZLES = [
   },
   {
     id: 'p-corner-capture',
+    category: 'capture',
     difficulty: 26,
     prompt: 'Black to play. Capture the marked stone in the corner.',
     setup: { toMove: 'black', stones: [W(0, 0), B(0, 1)] },
@@ -43,6 +68,7 @@ const PUZZLES = [
   },
   {
     id: 'p-edge-capture',
+    category: 'capture',
     difficulty: 24,
     prompt: 'Black to play. Capture the marked stone on the edge.',
     setup: { toMove: 'black', stones: [W(0, 4), B(0, 3), B(0, 5)] },
@@ -52,6 +78,7 @@ const PUZZLES = [
   },
   {
     id: 'p-group',
+    category: 'capture',
     difficulty: 22,
     prompt: 'Black to play. Capture the marked group.',
     setup: {
@@ -64,6 +91,7 @@ const PUZZLES = [
   },
   {
     id: 'p-edge-atari',
+    category: 'atari',
     difficulty: 20,
     prompt: 'Black to play. Put the marked stone in atari.',
     setup: { toMove: 'black', stones: [W(0, 4), B(1, 4)] },
@@ -74,6 +102,7 @@ const PUZZLES = [
   },
   {
     id: 'p-atari-both',
+    category: 'atari',
     difficulty: 18,
     prompt: 'Black to play. Attack both marked stones with one move.',
     setup: {
@@ -91,6 +120,7 @@ const PUZZLES = [
   },
   {
     id: 'p-double-atari-2',
+    category: 'atari',
     difficulty: 17,
     prompt: 'Black to play. Attack both marked stones with one move.',
     setup: {
@@ -107,6 +137,7 @@ const PUZZLES = [
   },
   {
     id: 'p-live',
+    category: 'life-death',
     difficulty: 16,
     prompt: 'Black to play. Make the marked group alive.',
     setup: {
@@ -116,10 +147,11 @@ const PUZZLES = [
     marks: [mark(1, 0), mark(1, 1), mark(1, 2)],
     hint: 'The eye space has three points in a row — the middle one splits it into two eyes.',
     // Only the middle of the three-point eye space splits it into two eyes.
-    check: ({ playedPoint }) => playedPoint?.y === 0 && playedPoint?.x === 1,
+    check: atPoint(0, 1),
   },
   {
     id: 'p-kill',
+    category: 'life-death',
     difficulty: 15,
     prompt: 'Black to play. Stop the marked group from living.',
     setup: {
@@ -129,10 +161,11 @@ const PUZZLES = [
     marks: [mark(1, 0), mark(1, 1), mark(1, 2)],
     hint: 'Play the vital point that denies the group a second eye.',
     // The vital point is the middle: it denies white a second eye.
-    check: ({ playedPoint }) => playedPoint?.y === 0 && playedPoint?.x === 1,
+    check: atPoint(0, 1),
   },
   {
     id: 'p-bigger-capture-3',
+    category: 'capture',
     difficulty: 13,
     prompt: 'Black to play. Capture the marked group.',
     setup: {
@@ -155,6 +188,7 @@ const PUZZLES = [
   },
   {
     id: 'p-live-2',
+    category: 'life-death',
     difficulty: 12,
     prompt: 'Black to play. Make the marked group alive.',
     setup: {
@@ -163,10 +197,11 @@ const PUZZLES = [
     },
     marks: [mark(7, 8), mark(7, 7), mark(7, 6)],
     hint: 'The eye space has three points in a row — the middle one splits it into two eyes.',
-    check: ({ playedPoint }) => playedPoint?.y === 8 && playedPoint?.x === 7,
+    check: atPoint(8, 7),
   },
   {
     id: 'p-kill-2',
+    category: 'life-death',
     difficulty: 11,
     prompt: 'Black to play. Stop the marked group from living.',
     setup: {
@@ -175,10 +210,11 @@ const PUZZLES = [
     },
     marks: [mark(1, 8), mark(1, 7), mark(1, 6)],
     hint: 'Play the vital point that denies the group a second eye.',
-    check: ({ playedPoint }) => playedPoint?.y === 0 && playedPoint?.x === 7,
+    check: atPoint(0, 7),
   },
   {
     id: 'p-bigger-capture-4',
+    category: 'capture',
     difficulty: 9,
     prompt: 'Black to play. Capture the marked group.',
     setup: {

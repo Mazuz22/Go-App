@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import GoBoard from './GoBoard'
 import Logo from './Logo'
-import PUZZLES from '../puzzles'
+import PUZZLES, { CATEGORY_LABELS } from '../puzzles'
 import * as api from '../lib/api'
 import {
   DEFAULT_PUZZLE_KYU,
@@ -189,6 +189,9 @@ export default function Puzzles({ onExit }) {
 
       <div className="tutorial-brief">
         <h2>Puzzles</h2>
+        {puzzle.category && (
+          <span className="puzzle-category-badge">{CATEGORY_LABELS[puzzle.category] ?? puzzle.category}</span>
+        )}
         <p className="tutorial-task">{puzzle.prompt}</p>
         {feedback && <p className={`tutorial-feedback ${feedback.type}`}>{feedback.text}</p>}
         {missedPoint && !explanation && (

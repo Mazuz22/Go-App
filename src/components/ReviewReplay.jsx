@@ -70,7 +70,15 @@ export default function ReviewReplay({ moves, mistakes, moveMarks, performance, 
         showStatus={false}
         marks={
           currentMark
-            ? [{ type: 'circle', y: currentMark.y, x: currentMark.x, tone: currentMark.tier }]
+            ? [
+                { type: 'circle', y: currentMark.y, x: currentMark.x, tone: currentMark.tier },
+                // Same accent-circle language the live Hint bar already uses for
+                // "the app is suggesting this point" — only shown on a flagged
+                // mistake, and only once there's actually somewhere else to point.
+                ...(isFlagged && currentMark.betterMove
+                  ? [{ type: 'circle', y: currentMark.betterMove.y, x: currentMark.betterMove.x, tone: 'accent' }]
+                  : []),
+              ]
             : []
         }
         onReady={(game) => {
@@ -88,6 +96,12 @@ export default function ReviewReplay({ moves, mistakes, moveMarks, performance, 
             <p className="review-coach-note">
               {note ?? 'This move cost real points — worth a second look.'}
             </p>
+            {currentMark.betterMove && (
+              <p className="review-better-move">
+                <span className="review-better-move-swatch" aria-hidden="true" />
+                Better: the marked point instead.
+              </p>
+            )}
           </>
         ) : (
           <p className="review-replay-status">
