@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import GoBoard from './GoBoard'
 import GameReview from './GameReview'
 import Logo from './Logo'
-import { HintIcon, PassIcon } from './icons'
+import { HintIcon, PassIcon, ResignIcon } from './icons'
 import * as api from '../lib/api'
 import { commentOn } from '../lib/commentary'
 import { noteForAiMove, noteForHumanMove } from '../lib/teachingCommentary'
@@ -378,6 +378,38 @@ export default function PlayAI({ onExit, rank, onRankChange }) {
     }
   }
 
+  // A beginner stuck in a clearly lost game had no way out before this except
+  // playing to the bitter end or abandoning the tab — resignation is a real,
+  // hard-to-reverse action, so it's armed on a first tap and only actually
+  // sent on a second confirming tap, rather than a native confirm() dialog
+  // that would look out of place next to the rest of this screen.
+  const [resignArmed, setResignArmed] = useState(false)
+  const resignArmedTimer = useRef(null)
+  const RESIGN_ARM_MS = 3000
+
+  useEffect(() => () => clearTimeout(resignArmedTimer.current), [])
+
+  const handleResign = async () => {
+    if (!resignArmed) {
+      setResignArmed(true)
+      resignArmedTimer.current = setTimeout(() => setResignArmed(false), RESIGN_ARM_MS)
+      return
+    }
+    clearTimeout(resignArmedTimer.current)
+    setResignArmed(false)
+    if (thinking || result) return
+    setThinking(true)
+    try {
+      const payload = await api.resignGame(gameId)
+      setResult({ winner: payload.game.result.winner, reason: 'resignation' })
+    } catch (err) {
+      if (err.status === 404) setGameGone(true)
+      else setError(err.message)
+    } finally {
+      setThinking(false)
+    }
+  }
+
   const handleHint = async () => {
     if (!gameId || thinking || result || turn !== humanColor) return
     setHintLoading(true)
@@ -532,6 +564,8 @@ export default function PlayAI({ onExit, rank, onRankChange }) {
     rankUpdatedRef.current = false
     setRemark(null)
     setTeachingLog([])
+    clearTimeout(resignArmedTimer.current)
+    setResignArmed(false)
     setError(null)
     setGameGone(false)
     setPostGameView('board')
@@ -785,6 +819,15 @@ export default function PlayAI({ onExit, rank, onRankChange }) {
               <button type="button" onClick={handlePass} disabled={thinking}>
                 <PassIcon />
                 Pass
+              </button>
+              <button
+                type="button"
+                className={`resign${resignArmed ? ' resign-armed' : ''}`}
+                onClick={handleResign}
+                disabled={thinking}
+              >
+                <ResignIcon />
+                {resignArmed ? 'Confirm?' : 'Resign'}
               </button>
             </div>
           </>

@@ -21,6 +21,7 @@
   /* Semantic pair, kept cool to match. */
   --positive: #4fc2a8;
   --negative: #e0687f;
+  --negative-rgb: 224, 104, 127;
 
   /* Board: warm kaya, lit from the top-left, inside a darker wooden frame. */
   --board: #e0bd80;
@@ -991,6 +992,8 @@ body {
 /* Bottom action bar, shared by the play screen */
 .go-board-toolbar {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 10px;
 }
 
@@ -1043,6 +1046,11 @@ body {
 
 .go-board-toolbar button.resign {
   color: var(--text-muted);
+}
+
+.go-board-toolbar button.resign-armed {
+  color: var(--negative);
+  background: rgba(var(--negative-rgb), 0.12);
 }
 
 .score-line {
