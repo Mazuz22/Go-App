@@ -46,11 +46,3 @@ export function applySetup(game, { stones = [], toMove = 'black' } = {}) {
   game._moves = [state]
   game.render()
 }
-
-/** Stones currently on the board, as a plain array. */
-export function stonesOnBoard(game) {
-  return game
-    .intersections()
-    .filter((i) => i.value !== 'empty')
-    .map((i) => ({ color: i.value, y: i.y, x: i.x }))
-}

@@ -1,24 +1,3 @@
-export function UndoIcon() {
-  return (
-    <svg viewBox="0 0 20 20" width="18" height="18" fill="none" aria-hidden="true">
-      <path
-        d="M6 5 2.5 8.5 6 12"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M2.5 8.5H12a5 5 0 0 1 0 10H7"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  )
-}
-
 export function PassIcon() {
   return (
     <svg viewBox="0 0 20 20" width="18" height="18" fill="none" aria-hidden="true">
