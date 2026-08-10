@@ -39,7 +39,7 @@ export default function FreePlay({ onExit }) {
     <div className="play-ai">
       <header className="tutorial-header">
         <button type="button" className="link-button" onClick={onExit}>
-          ← Play
+          ← Play modes
         </button>
         <span className="tutorial-progress">Two players · komi {KOMI}</span>
       </header>

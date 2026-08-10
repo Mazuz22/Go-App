@@ -10,7 +10,7 @@ export default function LessonPicker({ onSelect, onExit }) {
     <div className="level-select">
       <header className="tutorial-header">
         <button type="button" className="link-button" onClick={onExit}>
-          ← Play
+          ← Play modes
         </button>
       </header>
       <div className="level-select-body stagger">

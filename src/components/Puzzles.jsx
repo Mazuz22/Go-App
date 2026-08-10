@@ -180,7 +180,7 @@ export default function Puzzles({ onExit }) {
     <div className="tutorial">
       <header className="tutorial-header">
         <button type="button" className="link-button" onClick={onExit}>
-          ← Play
+          ← Play modes
         </button>
         <span className="tutorial-progress">
           Puzzle {roundIndex + 1} of {round.length}
