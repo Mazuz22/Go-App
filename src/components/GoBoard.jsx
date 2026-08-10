@@ -201,6 +201,21 @@ export default function GoBoard({
   }
 
   const showReticle = hover && !status.isOver && !locked
+
+  // Sighted status (game-headline/player-row above) is decorative-ish and
+  // renders conditionally on `showStatus` — this exists purely to be spoken
+  // by a screen reader on every real state change, board-size-independent
+  // and always present, since a blind or low-vision player needs the same
+  // "whose turn, how many captures" info sighted players get for free.
+  // Board interaction itself is still pointer/touch-only — tenuki draws its
+  // own DOM with click handlers, and there's no keyboard-driven stone
+  // placement yet, which the board's own aria-label says plainly below
+  // rather than silently pretending otherwise.
+  const statusAnnouncement = status.isOver
+    ? 'Game over.'
+    : `Move ${status.moveNumber}, ${PLAYER_LABEL[status.currentPlayer]}'s turn. ` +
+      `${status.blackPrisoners} black captures, ${status.whitePrisoners} white captures.`
+
   const reticleStyle = showReticle ? pointStyle(hover.y, hover.x) : undefined
 
   // Memoized so a fast-ticking parent state (the territory sweep's count-up
@@ -268,8 +283,16 @@ export default function GoBoard({
           </div>
         )}
 
+        <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+          {statusAnnouncement}
+        </p>
+
         <div className="go-board-card">
-          <div className="go-board-wrapper" ref={wrapperRef}>
+          <div
+            className="go-board-wrapper"
+            ref={wrapperRef}
+            aria-label={`${boardSize} by ${boardSize} Go board. Playing requires a mouse or touchscreen — keyboard-driven stone placement isn't supported yet.`}
+          >
             {/* No `tenuki-board-flat` class: tenuki then adds
                 `tenuki-board-nonflat` itself, which turns on the stone
                 gradients and drop shadows. It only affects stones — the
