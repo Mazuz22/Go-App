@@ -12,7 +12,7 @@ const NEXT_DELAY_MS = 700
  * than asking them to pick one blind. Either they say, or they take a short
  * test — both produce a kyu estimate.
  */
-export default function Assessment({ onDone, onCancel }) {
+export default function Assessment({ onDone, onCancel, onLessons }) {
   const [mode, setMode] = useState('ask')
   const [index, setIndex] = useState(0)
   const [correct, setCorrect] = useState(0)
@@ -76,6 +76,17 @@ export default function Assessment({ onDone, onCancel }) {
             onClick={() => setMode('puzzles')}
           >
             Not sure? Take a short test instead
+          </button>
+          {/* Every brand-new user passes through this screen before their first
+              game — Play stays the single dominant path (no gate, no extra tap
+              forced on anyone), but a true beginner gets one quiet way to see
+              the rules first instead of only ever landing straight in a game. */}
+          <button
+            type="button"
+            className="link-button assessment-switch"
+            onClick={onLessons}
+          >
+            New to Go? See a 2-minute lesson on the rules first
           </button>
         </div>
       </div>

@@ -33,7 +33,13 @@ export default function App() {
   const render = () => {
     switch (screen) {
       case 'assess':
-        return <Assessment onDone={recordRank} onCancel={() => setScreen('home')} />
+        return (
+          <Assessment
+            onDone={recordRank}
+            onCancel={() => setScreen('home')}
+            onLessons={() => setScreen('lessons')}
+          />
+        )
       case 'lessons':
         return (
           <LessonPicker
