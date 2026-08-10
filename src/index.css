@@ -307,28 +307,14 @@ body {
 /* The one button on Home meant to dominate — noticeably bigger than any
    other button in the app, so there's never a question which one to press. */
 .home-play-button {
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
   min-height: 76px;
   padding: 16px 20px;
-  font-size: 20px;
-  border-radius: 14px;
-}
-
-.home-play-title {
   font-size: 22px;
   font-weight: 700;
   letter-spacing: 0.02em;
-}
-
-.home-play-subtitle {
-  font-size: 13px;
-  font-weight: 500;
-  letter-spacing: 0.01em;
-  color: var(--accent-ink);
-  opacity: 0.85;
+  border-radius: 14px;
 }
 
 /* Deliberately quiet — everything reachable from here is optional next to

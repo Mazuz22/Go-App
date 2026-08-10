@@ -13,8 +13,7 @@ export default function Home({ onPlay, onPlayModes }) {
 
       <div className="home-actions">
         <button type="button" className="primary-button home-play-button" onClick={onPlay}>
-          <span className="home-play-title">Play</span>
-          <span className="home-play-subtitle">Pick a board · matched to your level</span>
+          Play
         </button>
         <button type="button" className="link-button home-play-modes" onClick={onPlayModes}>
           More ways to play →
