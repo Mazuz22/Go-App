@@ -11,7 +11,12 @@ import { toGtp } from './gtp.js'
  * described only as far as the real move list goes.
  */
 
-const MODEL = 'claude-opus-4-8'
+// Claude Opus 5 — the current flagship model, a drop-in upgrade over Opus 4.8
+// at the same price ($5/$25 per MTok). Worth it here: the coach's entire job
+// is judging *why* a move was wrong well enough to teach it, not just
+// generating fluent prose — that's exactly the kind of qualitative judgment
+// call the strongest available model is best at.
+const MODEL = 'claude-opus-5'
 
 // Constructed lazily so a missing API key only breaks the coach endpoint, not
 // server startup — this feature is optional, the game itself isn't.
