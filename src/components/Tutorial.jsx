@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import GoBoard from './GoBoard'
 import { PassIcon } from './icons'
+import { TaskScreen } from './layout'
 import LESSONS from '../lessons'
 
 // How long a rejected move stays visible before it's retracted, so the student
@@ -105,40 +106,20 @@ export default function Tutorial({ onExit, startIndex = 0 }) {
   }
 
   return (
-    <div className="tutorial">
-      <header className="tutorial-header">
-        <button type="button" className="link-button" onClick={onExit}>
-          ← Lessons
-        </button>
-        <span className="tutorial-progress">
-          Lesson {index + 1} of {LESSONS.length}
-        </span>
-      </header>
-
-      <div className="tutorial-brief">
-        <h2>{lesson.title}</h2>
-        <p className="tutorial-intro">{lesson.intro}</p>
-        <p className="tutorial-task">{lesson.task}</p>
-        {feedback && (
-          <p className={`tutorial-feedback ${feedback.type}`}>{feedback.text}</p>
-        )}
-      </div>
-
-      <GoBoard
-        // Remount per lesson/attempt so the engine is rebuilt with the setup.
-        key={`${lesson.id}-${attempt}`}
-        boardSize={9}
-        setup={lesson.setup}
-        marks={lesson.marks}
-        onMove={handleMove}
-        onReady={(game) => {
-          boardRef.current = game
-        }}
-        showStatus={false}
-      />
-
-      <div className="tutorial-footer">
-        {solved ? (
+    <TaskScreen
+      onBack={onExit}
+      backLabel="← Lessons"
+      progress={`Lesson ${index + 1} of ${LESSONS.length}`}
+      brief={
+        <>
+          <h2>{lesson.title}</h2>
+          <p className="task-intro">{lesson.intro}</p>
+          <p className="task-line">{lesson.task}</p>
+          {feedback && <p className={`screen-feedback ${feedback.type}`}>{feedback.text}</p>}
+        </>
+      }
+      footer={
+        solved ? (
           isLast ? (
             <button type="button" className="primary-button" onClick={onExit}>
               Finish
@@ -164,8 +145,21 @@ export default function Tutorial({ onExit, startIndex = 0 }) {
               Reset
             </button>
           </div>
-        )}
-      </div>
-    </div>
+        )
+      }
+    >
+      <GoBoard
+        // Remount per lesson/attempt so the engine is rebuilt with the setup.
+        key={`${lesson.id}-${attempt}`}
+        boardSize={9}
+        setup={lesson.setup}
+        marks={lesson.marks}
+        onMove={handleMove}
+        onReady={(game) => {
+          boardRef.current = game
+        }}
+        showStatus={false}
+      />
+    </TaskScreen>
   )
 }

@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import GoBoard from './GoBoard'
 import { PassIcon } from './icons'
+import { PlayScreen } from './layout'
 
 const KOMI = 6.5
 
@@ -36,28 +37,14 @@ export default function FreePlay({ onExit }) {
     score && (score.black === score.white ? null : score.black > score.white ? 'Black' : 'White')
 
   return (
-    <div className="play-ai">
-      <header className="tutorial-header">
-        <button type="button" className="link-button" onClick={onExit}>
-          ← Play modes
-        </button>
-        <span className="tutorial-progress">Two players · komi {KOMI}</span>
-      </header>
-
-      <GoBoard
-        key={boardKey}
-        boardSize={9}
-        komi={KOMI}
-        onReady={(game) => {
-          gameRef.current = game
-        }}
-        onRender={refresh}
-      />
-
-      <div className="tutorial-footer">
-        {over ? (
+    <PlayScreen
+      onBack={onExit}
+      backLabel="← Play modes"
+      progress={`Two players · komi ${KOMI}`}
+      footer={
+        over ? (
           <>
-            <p className="tutorial-feedback info">
+            <p className="screen-feedback info">
               Both players passed. Tap any group that is dead to remove it from the count.
             </p>
             {score && (
@@ -73,7 +60,7 @@ export default function FreePlay({ onExit }) {
           </>
         ) : (
           <>
-            <p className="tutorial-feedback info">
+            <p className="screen-feedback info">
               Pass when you have no useful move left. Two passes in a row end the game.
             </p>
             <div className="go-board-toolbar">
@@ -83,8 +70,18 @@ export default function FreePlay({ onExit }) {
               </button>
             </div>
           </>
-        )}
-      </div>
-    </div>
+        )
+      }
+    >
+      <GoBoard
+        key={boardKey}
+        boardSize={9}
+        komi={KOMI}
+        onReady={(game) => {
+          gameRef.current = game
+        }}
+        onRender={refresh}
+      />
+    </PlayScreen>
   )
 }

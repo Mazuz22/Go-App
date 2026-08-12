@@ -106,6 +106,19 @@ body {
   min-height: 100svh;
   display: flex;
   flex-direction: column;
+  /* Built mobile-first, with only a single body-level max-width (420px) ever
+     capping any individual screen's content. On a wide desktop window that
+     left every screen's full-bleed header spanning the entire browser width
+     while its body sat centered in its own much narrower island underneath —
+     two different width models on one screen, which read as broken rather
+     than "responsive." Capping the whole shell to one column and centering
+     it fixes that at the source: header and body now always share the same
+     width, on any screen. 640px comfortably fits the largest board
+     (--board-max caps at 900px, but only at viewport sizes where that would
+     also make this outer cap moot) alongside the narrower text screens. */
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
   padding: env(safe-area-inset-top) env(safe-area-inset-right)
     env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
@@ -327,7 +340,7 @@ body {
    Game over
    --------------------------------------------------------------------------- */
 
-/* Lives inline in PlayAI's .tutorial-footer, below the still-visible final
+/* Lives inline in PlayAI's .screen-footer, below the still-visible final
    board — not a full-screen takeover, so the played-out position (and, for
    a scored ending, the territory sweep) stays in view through the reveal. */
 .game-over {
@@ -638,31 +651,33 @@ body {
 }
 
 /* ---------------------------------------------------------------------------
-   Tutorial
+   Task screen (shape 2: instruction + interactive board + footer — see
+   src/components/layout/TaskScreen.jsx)
    --------------------------------------------------------------------------- */
 
-.tutorial {
+.task-screen {
   flex: 1;
   display: flex;
   flex-direction: column;
   min-height: 0;
 }
 
-.tutorial-header {
+/* Shared by every screen shape — see src/components/layout/ScreenHeader.jsx. */
+.screen-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 6px 14px 0;
 }
 
-.tutorial-progress {
+.screen-progress {
   font-size: 12px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--text-muted);
 }
 
-.tutorial-brief {
+.task-brief {
   width: 100%;
   max-width: var(--bar-max);
   margin: 0 auto;
@@ -670,14 +685,14 @@ body {
   text-align: left;
 }
 
-.tutorial-brief h2 {
+.task-brief h2 {
   margin: 0 0 6px;
   font-size: var(--type-heading);
   font-weight: 600;
   letter-spacing: -0.01em;
 }
 
-.tutorial-intro {
+.task-intro {
   margin: 0 0 8px;
   max-width: 60ch;
   font-size: 14px;
@@ -699,7 +714,7 @@ body {
 }
 
 /* The instruction is the operative line, so it carries the weight. */
-.tutorial-task {
+.task-line {
   margin: 0;
   max-width: 60ch;
   font-size: 15px;
@@ -709,15 +724,16 @@ body {
   border-top: var(--rule);
 }
 
-/* The tutorial has no player bars but does have brief + footer text, so it
-   gets its own height budget rather than the play screen's. */
-.tutorial .go-board-screen {
+/* The task screen has no player bars but does have brief + footer text, so
+   it gets its own height budget rather than the play screen's. */
+.task-screen .go-board-screen {
   flex: 1;
   min-height: 0;
   --board-max: min(100vw, calc(100svh - 330px), 900px);
 }
 
-.tutorial-footer {
+/* Shared by every screen shape that has a footer action area. */
+.screen-footer {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -729,7 +745,7 @@ body {
   padding-bottom: calc(14px + env(safe-area-inset-bottom));
 }
 
-.tutorial-feedback {
+.screen-feedback {
   margin: 0;
   font-size: 14px;
   line-height: 1.5;
@@ -739,28 +755,29 @@ body {
 
 /* Feedback lives at the top now, right under the task line, so the result of
    a move shows up where you're already looking rather than below the board. */
-.tutorial-brief .tutorial-feedback {
+.task-brief .screen-feedback {
   margin-top: 10px;
 }
 
-.tutorial-feedback.success {
+.screen-feedback.success {
   color: var(--positive);
 }
 
-.tutorial-feedback.error {
+.screen-feedback.error {
   color: var(--negative);
 }
 
 /* Narration for a scripted opponent reply — neither success nor mistake. */
-.tutorial-feedback.info {
+.screen-feedback.info {
   color: var(--text-muted);
 }
 
 /* ---------------------------------------------------------------------------
-   Play vs AI
+   Play screen (shape 3: live board + persistent toolbar/end-state panel —
+   see src/components/layout/PlayScreen.jsx) and level-select (shape 1)
    --------------------------------------------------------------------------- */
 
-.play-ai,
+.play-screen,
 .level-select {
   flex: 1;
   display: flex;
@@ -768,7 +785,7 @@ body {
   min-height: 0;
 }
 
-.play-ai .go-board-screen {
+.play-screen .go-board-screen {
   flex: 1;
   min-height: 0;
   --board-max: min(100vw, calc(100svh - 300px), 900px);

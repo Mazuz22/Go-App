@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import Logo from './Logo'
 import ReviewReplay from './ReviewReplay'
+import { TaskScreen } from './layout'
 import * as api from '../lib/api'
 
 /**
@@ -76,13 +77,20 @@ export default function GameReview({
   }
 
   return (
-    <div className="tutorial">
-      <header className="tutorial-header">
-        <button type="button" className="link-button" onClick={onBack}>
-          ← Back
-        </button>
-      </header>
-
+    <TaskScreen
+      onBack={onBack}
+      backLabel="← Back"
+      footer={
+        <div className="game-over-actions in">
+          <button type="button" className="primary-button" onClick={onRematch}>
+            Play again
+          </button>
+          <button type="button" className="ghost-button" onClick={onHome}>
+            Home
+          </button>
+        </div>
+      }
+    >
       <div className="review-body stagger">
         <div className="review">
           <h2 className="review-title">Where it turned</h2>
@@ -104,20 +112,9 @@ export default function GameReview({
               {coaching ? 'Asking the coach…' : 'Explain these mistakes'}
             </button>
           )}
-          {coachError && <p className="tutorial-feedback error">{coachError}</p>}
+          {coachError && <p className="screen-feedback error">{coachError}</p>}
         </div>
       </div>
-
-      <div className="tutorial-footer">
-        <div className="game-over-actions in">
-          <button type="button" className="primary-button" onClick={onRematch}>
-            Play again
-          </button>
-          <button type="button" className="ghost-button" onClick={onHome}>
-            Home
-          </button>
-        </div>
-      </div>
-    </div>
+    </TaskScreen>
   )
 }

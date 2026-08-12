@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import GoBoard from './GoBoard'
 import Logo from './Logo'
+import { TaskScreen } from './layout'
 import PUZZLES, { CATEGORY_LABELS } from '../puzzles'
 import * as api from '../lib/api'
 import {
@@ -177,49 +178,34 @@ export default function Puzzles({ onExit }) {
   }
 
   return (
-    <div className="tutorial">
-      <header className="tutorial-header">
-        <button type="button" className="link-button" onClick={onExit}>
-          ← Play modes
-        </button>
-        <span className="tutorial-progress">
-          Puzzle {roundIndex + 1} of {round.length}
-        </span>
-      </header>
-
-      <div className="tutorial-brief">
-        <h2>Puzzles</h2>
-        {puzzle.category && (
-          <span className="puzzle-category-badge">{CATEGORY_LABELS[puzzle.category] ?? puzzle.category}</span>
-        )}
-        <p className="tutorial-task">{puzzle.prompt}</p>
-        {feedback && <p className={`tutorial-feedback ${feedback.type}`}>{feedback.text}</p>}
-        {missedPoint && !explanation && (
-          <button
-            type="button"
-            className="ghost-button review-coach-button"
-            onClick={askWhy}
-            disabled={explaining}
-          >
-            {explaining ? 'Asking the coach…' : 'Why was this wrong?'}
-          </button>
-        )}
-        {explainError && <p className="tutorial-feedback error">{explainError}</p>}
-        {explanation && <p className="tutorial-feedback">{explanation}</p>}
-      </div>
-
-      <GoBoard
-        // Remount per puzzle/attempt so the board resets to the setup position.
-        key={`${puzzle.id}-${attempt}`}
-        boardSize={9}
-        setup={puzzle.setup}
-        marks={puzzle.marks}
-        onMove={handleMove}
-        showStatus={false}
-      />
-
-      <div className="tutorial-footer">
-        {solved ? (
+    <TaskScreen
+      onBack={onExit}
+      backLabel="← Play modes"
+      progress={`Puzzle ${roundIndex + 1} of ${round.length}`}
+      brief={
+        <>
+          <h2>Puzzles</h2>
+          {puzzle.category && (
+            <span className="puzzle-category-badge">{CATEGORY_LABELS[puzzle.category] ?? puzzle.category}</span>
+          )}
+          <p className="task-line">{puzzle.prompt}</p>
+          {feedback && <p className={`screen-feedback ${feedback.type}`}>{feedback.text}</p>}
+          {missedPoint && !explanation && (
+            <button
+              type="button"
+              className="ghost-button review-coach-button"
+              onClick={askWhy}
+              disabled={explaining}
+            >
+              {explaining ? 'Asking the coach…' : 'Why was this wrong?'}
+            </button>
+          )}
+          {explainError && <p className="screen-feedback error">{explainError}</p>}
+          {explanation && <p className="screen-feedback">{explanation}</p>}
+        </>
+      }
+      footer={
+        solved ? (
           <button type="button" className="primary-button" onClick={advance}>
             {isLastInRound ? 'See round results' : 'Next puzzle'}
           </button>
@@ -229,9 +215,19 @@ export default function Puzzles({ onExit }) {
               Reset
             </button>
           </div>
-        )}
-      </div>
-    </div>
+        )
+      }
+    >
+      <GoBoard
+        // Remount per puzzle/attempt so the board resets to the setup position.
+        key={`${puzzle.id}-${attempt}`}
+        boardSize={9}
+        setup={puzzle.setup}
+        marks={puzzle.marks}
+        onMove={handleMove}
+        showStatus={false}
+      />
+    </TaskScreen>
   )
 }
 

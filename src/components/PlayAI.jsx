@@ -3,6 +3,7 @@ import GoBoard from './GoBoard'
 import GameReview from './GameReview'
 import Logo from './Logo'
 import { HintIcon, PassIcon, ResignIcon } from './icons'
+import { LevelSelectScreen, PlayScreen } from './layout'
 import * as api from '../lib/api'
 import { commentOn } from '../lib/commentary'
 import { noteForAiMove, noteForHumanMove } from '../lib/teachingCommentary'
@@ -31,9 +32,9 @@ import { useCountUp } from '../lib/useCountUp'
  * to move burns it. Running out loses the game.
  */
 const FORMATS = [
-  { id: 'quick', name: 'Quick', minutes: null, boardSize: 9, blurb: '9×9 — a full game over a coffee. No clock.' },
-  { id: 'medium', name: 'Medium', minutes: null, boardSize: 13, blurb: '13×13 — room to make shape. No clock.' },
-  { id: 'full', name: 'Full', minutes: 45, boardSize: 19, blurb: '19×19 — the real board, on a 45 minute clock.' },
+  { id: 'quick', name: 'Quick', minutes: null, boardSize: 9, blurb: 'A full game over a coffee. No clock.' },
+  { id: 'medium', name: 'Medium', minutes: null, boardSize: 13, blurb: 'Room to make shape. No clock.' },
+  { id: 'full', name: 'Full', minutes: 45, boardSize: 19, blurb: 'The real board, on a 45 minute clock.' },
 ]
 
 const REASON_TEXT = {
@@ -452,106 +453,104 @@ export default function PlayAI({ onExit, rank, onRankChange }) {
     const isMatched = Math.abs(targetKyu - rank.kyu) < 0.05
 
     return (
-      <div className="level-select">
-        <header className="tutorial-header">
-          <button type="button" className="link-button" onClick={onExit}>
-            ← Home
-          </button>
-          <span className="tutorial-progress">
-            {formatRank(rank.kyu)} · vs {opponentLevel.name}
-          </span>
-        </header>
-        <div className="level-select-body stagger">
-          <Logo size="md" className="screen-mark" />
-          <h2>How long have you got?</h2>
-          <p className="level-select-note">
-            Pick a board and you're straight in — colour's a coin flip,
-            opponent strength matches your rating unless you change it below.
-          </p>
-          <div className="level-list">
-            {FORMATS.map((option) => (
-              <button
-                key={option.id}
-                type="button"
-                className="level-card"
-                onClick={() => startQuickGame(option)}
-                disabled={starting}
-              >
-                <span className="level-name">
-                  {option.name}
-                  {option.minutes ? ` · ${option.minutes} min` : ''}
-                </span>
-                <span className="level-blurb">{option.blurb}</span>
-              </button>
-            ))}
-          </div>
-
-          <label className="mode-toggle-row">
-            <input
-              type="checkbox"
-              className="mode-toggle-input"
-              checked={mode === 'teaching'}
-              onChange={(e) => setMode(e.target.checked ? 'teaching' : 'play')}
-            />
-            <span className="mode-toggle-switch" aria-hidden="true" />
-            <span className="mode-toggle-text">
-              <span className="mode-toggle-name">Teaching game</span>
-              <span className="mode-toggle-blurb">
-                I'll talk through your moves and mine as we go, instead of staying quiet until the
-                end — pick a board above once this is set the way you want it.
-              </span>
-            </span>
-          </label>
-
-          <div className="strength-panel">
+      <LevelSelectScreen
+        onBack={onExit}
+        backLabel="← Home"
+        // Plain-language only in this compact corner — "22 kyu" means
+        // nothing to a beginner, and there's no room here for both the
+        // label and the number (see the opponent panel below for that).
+        progress={`${skillLabelForKyu(rank.kyu)} · vs ${opponentLevel.name}`}
+      >
+        <Logo size="md" className="screen-mark" />
+        <h2>How long have you got?</h2>
+        <div className="level-list">
+          {FORMATS.map((option) => (
             <button
+              key={option.id}
               type="button"
-              className="link-button"
-              onClick={() => setShowStrength((v) => !v)}
+              className="level-card"
+              onClick={() => startQuickGame(option)}
+              disabled={starting}
             >
-              Opponent: {formatRank(targetKyu)} · {opponentLevel.name}{' '}
-              {showStrength ? '▲' : '▾'}
+              <span className="level-name">
+                {option.name} · {option.boardSize}×{option.boardSize}
+                {option.minutes ? ` · ${option.minutes} min` : ''}
+              </span>
+              <span className="level-blurb">{option.blurb}</span>
             </button>
-            {showStrength && (
-              <div className="strength-picker">
-                <input
-                  type="range"
-                  className="strength-slider"
-                  min={-MAX_KYU}
-                  max={-MIN_KYU}
-                  step={0.5}
-                  // Inverted so dragging right makes the opponent stronger,
-                  // which reads more naturally than higher-kyu-is-weaker does.
-                  value={-targetKyu}
-                  onChange={(e) => setTargetKyu(-Number(e.target.value))}
-                />
-                <div className="strength-picker-readout">
-                  <strong>{formatRank(targetKyu)}</strong>
-                  <span>
-                    {opponentLevel.name} — {opponentLevel.blurb.toLowerCase()}
-                  </span>
-                </div>
-                {!isMatched && (
-                  <button
-                    type="button"
-                    className="link-button"
-                    onClick={() => setTargetKyu(rank.kyu)}
-                  >
-                    Match my level ({formatRank(rank.kyu)})
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-
-          {starting && (
-            <p className="tutorial-feedback info">
-              Setting up your game{humanColor ? ` as ${humanColor === 'black' ? 'Black' : 'White'}` : ''}…
-            </p>
-          )}
-          {error && <p className="tutorial-feedback error">{error}</p>}
+          ))}
         </div>
-      </div>
+
+        <label className="mode-toggle-row">
+          <input
+            type="checkbox"
+            className="mode-toggle-input"
+            checked={mode === 'teaching'}
+            onChange={(e) => setMode(e.target.checked ? 'teaching' : 'play')}
+          />
+          <span className="mode-toggle-switch" aria-hidden="true" />
+          <span className="mode-toggle-text">
+            <span className="mode-toggle-name">Teaching game</span>
+            <span className="mode-toggle-blurb">
+              I'll talk through your moves and mine as we go, instead of staying quiet until the end.
+            </span>
+          </span>
+        </label>
+
+        <div className="strength-panel">
+          <button
+            type="button"
+            className="link-button"
+            onClick={() => setShowStrength((v) => !v)}
+          >
+            {/* Plain-language leads (opponentLevel.name is already one of the
+                app's own words — Gentle, Careless, Steady…), raw kyu trails
+                small in parens for anyone who already knows what it means.
+                What's actually decided reads at a glance, with no click
+                needed to understand it — expanding only reveals the slider
+                to change it. */}
+            Opponent: {opponentLevel.name} ({formatRank(targetKyu)}){' '}
+            {showStrength ? '▲' : '▾'}
+          </button>
+          {showStrength && (
+            <div className="strength-picker">
+              <input
+                type="range"
+                className="strength-slider"
+                min={-MAX_KYU}
+                max={-MIN_KYU}
+                step={0.5}
+                // Inverted so dragging right makes the opponent stronger,
+                // which reads more naturally than higher-kyu-is-weaker does.
+                value={-targetKyu}
+                onChange={(e) => setTargetKyu(-Number(e.target.value))}
+              />
+              <div className="strength-picker-readout">
+                <strong>{opponentLevel.name}</strong>
+                <span>
+                  {formatRank(targetKyu)} — {opponentLevel.blurb.toLowerCase()}
+                </span>
+              </div>
+              {!isMatched && (
+                <button
+                  type="button"
+                  className="link-button"
+                  onClick={() => setTargetKyu(rank.kyu)}
+                >
+                  Match my level ({skillLabelForKyu(rank.kyu)})
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+
+        {starting && (
+          <p className="screen-feedback info">
+            Setting up your game{humanColor ? ` as ${humanColor === 'black' ? 'Black' : 'White'}` : ''}…
+          </p>
+        )}
+        {error && <p className="screen-feedback error">{error}</p>}
+      </LevelSelectScreen>
     )
   }
 
@@ -587,25 +586,18 @@ export default function PlayAI({ onExit, rank, onRankChange }) {
   // with Hint/Pass buttons that would just fail the same way.
   if (gameGone) {
     return (
-      <div className="level-select">
-        <header className="tutorial-header">
-          <button type="button" className="link-button" onClick={onExit}>
-            ← Home
-          </button>
-        </header>
-        <div className="level-select-body stagger">
-          <Logo size="md" className="screen-mark" />
-          <h2>This game ended unexpectedly</h2>
-          <p className="level-select-note">
-            The connection to it was lost, most likely because the server
-            restarted. Nothing about your rating changed — start a new game
-            to keep playing.
-          </p>
-          <button type="button" className="primary-button" onClick={resetForNewGame}>
-            Start a new game
-          </button>
-        </div>
-      </div>
+      <LevelSelectScreen onBack={onExit} backLabel="← Home">
+        <Logo size="md" className="screen-mark" />
+        <h2>This game ended unexpectedly</h2>
+        <p className="level-select-note">
+          The connection to it was lost, most likely because the server
+          restarted. Nothing about your rating changed — start a new game
+          to keep playing.
+        </p>
+        <button type="button" className="primary-button" onClick={resetForNewGame}>
+          Start a new game
+        </button>
+      </LevelSelectScreen>
     )
   }
 
@@ -627,18 +619,151 @@ export default function PlayAI({ onExit, rank, onRankChange }) {
     )
   }
 
-  return (
-    <div className="play-ai">
-      <header className="tutorial-header">
-        <button type="button" className="link-button" onClick={onExit}>
-          ← Home
-        </button>
-        <span className="tutorial-progress">
-          {format.boardSize}×{format.boardSize} · {AI_LEVELS[aiLevelForKyu(targetKyu)].name}
-          {mode === 'teaching' ? ' · Teaching game' : ''}
-        </span>
-      </header>
+  const footer = result ? (
+    // The board above still shows the finished position (plus, for a scored
+    // ending, the territory sweep) — the conclusion is a panel under it, not
+    // a screen that replaces it.
+    <div className={`game-over ${result.winner === humanColor ? 'won' : 'lost'}`}>
+      <Logo size="md" className="game-over-mark" />
 
+      {isScored && (
+        <div className="game-over-score">
+          <div className="game-over-score-side">
+            <span className="game-over-score-label">Black</span>
+            <span className="game-over-score-value">{blackCount}</span>
+          </div>
+          <div className="game-over-score-divider" />
+          <div className="game-over-score-side">
+            <span className="game-over-score-label">White</span>
+            <span className="game-over-score-value">{whiteCount}</span>
+          </div>
+        </div>
+      )}
+
+      {scoring ? (
+        <p className="screen-feedback info">Counting the board…</p>
+      ) : (
+        <>
+          <div className={`game-over-stone ${result.winner} in`} aria-hidden="true" />
+          <h1 className="game-over-headline in">
+            {result.winner === humanColor ? 'You win' : 'You lose'}
+          </h1>
+          <p className="game-over-reason in">
+            {result.winner === 'black' ? 'Black' : 'White'} wins {REASON_TEXT[result.reason] ?? ''}
+            {result.detail ? ` · ${result.detail}` : ''}
+          </p>
+          {ratingChange && (
+            <div className="game-over-rating in">
+              <span className="game-over-rating-label">Rating</span>
+              <span className="game-over-rating-value">
+                {formatRank(ratingChange.from)} → {formatRank(ratingChange.to)}
+              </span>
+              <span className={`game-over-rating-delta ${ratingChange.delta > 0 ? 'up' : 'down'}`}>
+                {ratingChange.delta > 0 ? '▲' : '▼'} {Math.abs(ratingChange.delta).toFixed(1)}
+              </span>
+              <span className="game-over-rating-tier">{skillLabelForKyu(ratingChange.to)}</span>
+            </div>
+          )}
+          <div className="game-over-actions in">
+            <button type="button" className="ghost-button" onClick={() => setPostGameView('review')}>
+              Review my mistakes
+            </button>
+            <button type="button" className="primary-button" onClick={resetForNewGame}>
+              Play again
+            </button>
+            <button type="button" className="ghost-button" onClick={onExit}>
+              Home
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  ) : (
+    <>
+      {thinking && (
+        <p className="screen-feedback info">
+          {AI_LEVELS[aiLevelForKyu(targetKyu)].name} is thinking…
+        </p>
+      )}
+      {error && <p className="screen-feedback error">{error}</p>}
+
+      {hint && (
+        <div className="hint-bar">
+          <span className="hint-bar-label">Hint</span>
+          <div className="hint-bar-body">
+            <span className="hint-bar-why">
+              {hint.noMove
+                ? 'No move here is worth much anymore — this is a good place to pass.'
+                : describeOpening(hint, format.boardSize, hint.moveNumber) ??
+                  'Best move marked on the board.'}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {mode === 'teaching' ? (
+        !thinking &&
+        !error &&
+        !hint &&
+        teachingLog.length > 0 && (
+          <div className="teaching-log" aria-live="polite">
+            {teachingLog.slice(-4).map((entry) => (
+              <p key={entry.id} className="opponent-remark">
+                <span className="opponent-remark-who">{AI_LEVELS[aiLevelForKyu(targetKyu)].name}</span>
+                {entry.text}
+              </p>
+            ))}
+          </div>
+        )
+      ) : (
+        !thinking &&
+        !error &&
+        !hint &&
+        remark && (
+          <p className="opponent-remark">
+            <span className="opponent-remark-who">{AI_LEVELS[aiLevelForKyu(targetKyu)].name}</span>
+            {remark}
+          </p>
+        )
+      )}
+
+      <div className="go-board-toolbar">
+        <button
+          type="button"
+          className="hint"
+          onClick={handleHint}
+          disabled={thinking || hintLoading || turn !== humanColor}
+        >
+          <HintIcon />
+          {hintLoading ? '…' : 'Hint'}
+        </button>
+        <button type="button" onClick={handlePass} disabled={thinking}>
+          <PassIcon />
+          Pass
+        </button>
+        <button
+          type="button"
+          className={`resign${resignArmed ? ' resign-armed' : ''}`}
+          onClick={handleResign}
+          disabled={thinking}
+        >
+          <ResignIcon />
+          {resignArmed ? 'Confirm?' : 'Resign'}
+        </button>
+      </div>
+    </>
+  )
+
+  return (
+    <PlayScreen
+      onBack={onExit}
+      backLabel="← Home"
+      progress={
+        `${format.boardSize}×${format.boardSize} · ${AI_LEVELS[aiLevelForKyu(targetKyu)].name}` +
+        (mode === 'teaching' ? ' · Teaching game' : '')
+      }
+      footer={footer}
+    >
       <GoBoard
         boardSize={format.boardSize}
         clocks={clocks}
@@ -653,7 +778,7 @@ export default function PlayAI({ onExit, rank, onRankChange }) {
         }
         players={{
           [humanColor]: 'You',
-          [`${humanColor}Detail`]: `${humanColor === 'black' ? 'Black' : 'White'} · ${formatRank(rank.kyu)}`,
+          [`${humanColor}Detail`]: `${humanColor === 'black' ? 'Black' : 'White'} · ${skillLabelForKyu(rank.kyu)}`,
           [aiColor]: AI_LEVELS[aiLevelForKyu(targetKyu)].name,
           [`${aiColor}Detail`]: `${aiColor === 'black' ? 'Black' : 'White'} · computer`,
         }}
@@ -687,152 +812,6 @@ export default function PlayAI({ onExit, rank, onRankChange }) {
         }}
         locked={thinking || Boolean(result)}
       />
-
-      <div className="tutorial-footer">
-        {result ? (
-          // The board above still shows the finished position (plus, for a
-          // scored ending, the territory sweep) — the conclusion is a panel
-          // under it, not a screen that replaces it.
-          <div className={`game-over ${result.winner === humanColor ? 'won' : 'lost'}`}>
-            <Logo size="md" className="game-over-mark" />
-
-            {isScored && (
-              <div className="game-over-score">
-                <div className="game-over-score-side">
-                  <span className="game-over-score-label">Black</span>
-                  <span className="game-over-score-value">{blackCount}</span>
-                </div>
-                <div className="game-over-score-divider" />
-                <div className="game-over-score-side">
-                  <span className="game-over-score-label">White</span>
-                  <span className="game-over-score-value">{whiteCount}</span>
-                </div>
-              </div>
-            )}
-
-            {scoring ? (
-              <p className="tutorial-feedback info">Counting the board…</p>
-            ) : (
-              <>
-                <div
-                  className={`game-over-stone ${result.winner} in`}
-                  aria-hidden="true"
-                />
-                <h1 className="game-over-headline in">
-                  {result.winner === humanColor ? 'You win' : 'You lose'}
-                </h1>
-                <p className="game-over-reason in">
-                  {result.winner === 'black' ? 'Black' : 'White'} wins {REASON_TEXT[result.reason] ?? ''}
-                  {result.detail ? ` · ${result.detail}` : ''}
-                </p>
-                {ratingChange && (
-                  <div className="game-over-rating in">
-                    <span className="game-over-rating-label">Rating</span>
-                    <span className="game-over-rating-value">
-                      {formatRank(ratingChange.from)} → {formatRank(ratingChange.to)}
-                    </span>
-                    <span className={`game-over-rating-delta ${ratingChange.delta > 0 ? 'up' : 'down'}`}>
-                      {ratingChange.delta > 0 ? '▲' : '▼'} {Math.abs(ratingChange.delta).toFixed(1)}
-                    </span>
-                    <span className="game-over-rating-tier">{skillLabelForKyu(ratingChange.to)}</span>
-                  </div>
-                )}
-                <div className="game-over-actions in">
-                  <button
-                    type="button"
-                    className="ghost-button"
-                    onClick={() => setPostGameView('review')}
-                  >
-                    Review my mistakes
-                  </button>
-                  <button type="button" className="primary-button" onClick={resetForNewGame}>
-                    Play again
-                  </button>
-                  <button type="button" className="ghost-button" onClick={onExit}>
-                    Home
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        ) : (
-          <>
-            {thinking && (
-              <p className="tutorial-feedback info">
-                {AI_LEVELS[aiLevelForKyu(targetKyu)].name} is thinking…
-              </p>
-            )}
-            {error && <p className="tutorial-feedback error">{error}</p>}
-
-            {hint && (
-              <div className="hint-bar">
-                <span className="hint-bar-label">Hint</span>
-                <div className="hint-bar-body">
-                  <span className="hint-bar-why">
-                    {hint.noMove
-                      ? 'No move here is worth much anymore — this is a good place to pass.'
-                      : describeOpening(hint, format.boardSize, hint.moveNumber) ??
-                        'Best move marked on the board.'}
-                  </span>
-                </div>
-              </div>
-            )}
-
-            {mode === 'teaching' ? (
-              !thinking &&
-              !error &&
-              !hint &&
-              teachingLog.length > 0 && (
-                <div className="teaching-log" aria-live="polite">
-                  {teachingLog.slice(-4).map((entry) => (
-                    <p key={entry.id} className="opponent-remark">
-                      <span className="opponent-remark-who">
-                        {AI_LEVELS[aiLevelForKyu(targetKyu)].name}
-                      </span>
-                      {entry.text}
-                    </p>
-                  ))}
-                </div>
-              )
-            ) : (
-              !thinking &&
-              !error &&
-              !hint &&
-              remark && (
-                <p className="opponent-remark">
-                  <span className="opponent-remark-who">{AI_LEVELS[aiLevelForKyu(targetKyu)].name}</span>
-                  {remark}
-                </p>
-              )
-            )}
-
-            <div className="go-board-toolbar">
-              <button
-                type="button"
-                className="hint"
-                onClick={handleHint}
-                disabled={thinking || hintLoading || turn !== humanColor}
-              >
-                <HintIcon />
-                {hintLoading ? '…' : 'Hint'}
-              </button>
-              <button type="button" onClick={handlePass} disabled={thinking}>
-                <PassIcon />
-                Pass
-              </button>
-              <button
-                type="button"
-                className={`resign${resignArmed ? ' resign-armed' : ''}`}
-                onClick={handleResign}
-                disabled={thinking}
-              >
-                <ResignIcon />
-                {resignArmed ? 'Confirm?' : 'Resign'}
-              </button>
-            </div>
-          </>
-        )}
-      </div>
-    </div>
+    </PlayScreen>
   )
 }

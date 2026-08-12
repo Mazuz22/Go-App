@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import GoBoard from './GoBoard'
 import Logo from './Logo'
+import { LevelSelectScreen, TaskScreen } from './layout'
 import { ASSESSMENT_PUZZLES as PUZZLES } from '../puzzles'
 import { EXPERIENCE_OPTIONS, kyuFromScore } from '../lib/rank'
 
@@ -45,70 +46,65 @@ export default function Assessment({ onDone, onCancel, onLessons }) {
 
   if (mode === 'ask') {
     return (
-      <div className="level-select">
-        <header className="tutorial-header">
-          <button type="button" className="link-button" onClick={onCancel}>
-            ← Home
-          </button>
-        </header>
-        <div className="level-select-body stagger">
-          <Logo size="md" className="screen-mark" />
-          <h2>How much Go have you played?</h2>
-          <p className="level-select-note">
-            This sets your starting rating — it adjusts automatically as you play.
-          </p>
-          <div className="level-list">
-            {EXPERIENCE_OPTIONS.map((option) => (
-              <button
-                key={option.id}
-                type="button"
-                className="level-card"
-                onClick={() => finish(option.kyu, 'self')}
-              >
-                <span className="level-name">{option.label}</span>
-                <span className="level-blurb">{option.blurb}</span>
-              </button>
-            ))}
-          </div>
-          <button
-            type="button"
-            className="link-button assessment-switch"
-            onClick={() => setMode('puzzles')}
-          >
-            Not sure? Take a short test instead
-          </button>
-          {/* Every brand-new user passes through this screen before their first
-              game — Play stays the single dominant path (no gate, no extra tap
-              forced on anyone), but a true beginner gets one quiet way to see
-              the rules first instead of only ever landing straight in a game. */}
-          <button
-            type="button"
-            className="link-button assessment-switch"
-            onClick={onLessons}
-          >
-            New to Go? See a 2-minute lesson on the rules first
-          </button>
+      <LevelSelectScreen onBack={onCancel} backLabel="← Home">
+        <Logo size="md" className="screen-mark" />
+        <h2>How much Go have you played?</h2>
+        <p className="level-select-note">
+          This sets your starting rating — it adjusts automatically as you play.
+        </p>
+        <div className="level-list">
+          {EXPERIENCE_OPTIONS.map((option) => (
+            <button
+              key={option.id}
+              type="button"
+              className="level-card"
+              onClick={() => finish(option.kyu, 'self')}
+            >
+              <span className="level-name">{option.label}</span>
+              <span className="level-blurb">{option.blurb}</span>
+            </button>
+          ))}
         </div>
-      </div>
+        <button
+          type="button"
+          className="link-button assessment-switch"
+          onClick={() => setMode('puzzles')}
+        >
+          Not sure? Take a short test instead
+        </button>
+        {/* Every brand-new user passes through this screen before their first
+            game — Play stays the single dominant path (no gate, no extra tap
+            forced on anyone), but a true beginner gets one quiet way to see
+            the rules first instead of only ever landing straight in a game. */}
+        <button
+          type="button"
+          className="link-button assessment-switch"
+          onClick={onLessons}
+        >
+          New to Go? See a 2-minute lesson on the rules first
+        </button>
+      </LevelSelectScreen>
     )
   }
 
   return (
-    <div className="tutorial">
-      <header className="tutorial-header">
-        <button type="button" className="link-button" onClick={() => setMode('ask')}>
-          ← Back
-        </button>
-        <span className="tutorial-progress">
-          Puzzle {index + 1} of {PUZZLES.length}
-        </span>
-      </header>
-
-      <div className="tutorial-brief">
-        <h2>Quick test</h2>
-        <p className="tutorial-task">{puzzle.prompt}</p>
-      </div>
-
+    <TaskScreen
+      onBack={() => setMode('ask')}
+      backLabel="← Back"
+      progress={`Puzzle ${index + 1} of ${PUZZLES.length}`}
+      brief={
+        <>
+          <h2>Quick test</h2>
+          <p className="task-line">{puzzle.prompt}</p>
+        </>
+      }
+      footer={
+        // No right/wrong feedback: this is a measurement, not a lesson.
+        <p className="screen-feedback info">
+          {answered ? 'Answer recorded.' : 'Play your move. There are no hints here.'}
+        </p>
+      }
+    >
       <GoBoard
         // Remount per puzzle so each starts from its own position.
         key={puzzle.id}
@@ -119,13 +115,6 @@ export default function Assessment({ onDone, onCancel, onLessons }) {
         showStatus={false}
         locked={Boolean(answered)}
       />
-
-      <div className="tutorial-footer">
-        {/* No right/wrong feedback: this is a measurement, not a lesson. */}
-        <p className="tutorial-feedback info">
-          {answered ? 'Answer recorded.' : 'Play your move. There are no hints here.'}
-        </p>
-      </div>
-    </div>
+    </TaskScreen>
   )
 }
