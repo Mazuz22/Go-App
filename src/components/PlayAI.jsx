@@ -274,7 +274,7 @@ export default function PlayAI({ onExit, rank, onRankChange }) {
       // When the human takes white, the engine has already opened as black —
       // that move never passes through applyReply, so it needs its own note.
       setOpeningMove(game.firstMove ?? null)
-      if (mode === 'teaching') addTeachingNote(noteForAiMove(game.firstMove))
+      if (mode === 'teaching') addTeachingNote(noteForAiMove(game.firstMove, chosenFormat.boardSize))
       // Untimed formats pass no clocks, so the bars fall back to a turn badge.
       setClocks(
         chosenFormat.minutes
@@ -298,14 +298,19 @@ export default function PlayAI({ onExit, rank, onRankChange }) {
     setTeachingLog((log) => [...log, { id: teachingLogIdRef.current, text }])
   }
 
-  /** Mirror the engine's reply onto the local tenuki board. */
-  const applyReply = (board, payload) => {
+  /**
+   * Mirror the engine's reply onto the local tenuki board.
+   * `humanPoint` is the point the human just played, when this reply follows
+   * a move (omitted after a pass) — passed through so the teaching notes can
+   * reference where on the board something actually happened.
+   */
+  const applyReply = (board, payload, humanPoint = null) => {
     const { ai, game, quality } = payload
     setMoves(game?.moves ?? [])
 
     if (mode === 'teaching') {
-      addTeachingNote(noteForHumanMove(quality))
-      addTeachingNote(noteForAiMove(ai))
+      addTeachingNote(noteForHumanMove(quality, humanPoint, format.boardSize))
+      addTeachingNote(noteForAiMove(ai, format.boardSize))
     }
 
     if (ai?.resign) {
@@ -346,7 +351,7 @@ export default function PlayAI({ onExit, rank, onRankChange }) {
     setError(null)
     try {
       const payload = await api.playMove(gameId, playedPoint.y, playedPoint.x)
-      applyReply(game, payload)
+      applyReply(game, payload, playedPoint)
     } catch (err) {
       game.undo()
       // The server (GNU Go) is authoritative on legality; if it refuses, roll
@@ -481,67 +486,73 @@ export default function PlayAI({ onExit, rank, onRankChange }) {
           ))}
         </div>
 
-        <label className="mode-toggle-row">
-          <input
-            type="checkbox"
-            className="mode-toggle-input"
-            checked={mode === 'teaching'}
-            onChange={(e) => setMode(e.target.checked ? 'teaching' : 'play')}
-          />
-          <span className="mode-toggle-switch" aria-hidden="true" />
-          <span className="mode-toggle-text">
-            <span className="mode-toggle-name">Teaching game</span>
-            <span className="mode-toggle-blurb">
-              I'll talk through your moves and mine as we go, instead of staying quiet until the end.
+        {/* Both settings, not choices — one shared card, one section-gap
+            below the board list, so the screen reads as two decisions
+            (which board; how to play it) instead of five flat, same-weight
+            controls in a row. */}
+        <div className="level-select-options">
+          <label className="mode-toggle-row">
+            <input
+              type="checkbox"
+              className="mode-toggle-input"
+              checked={mode === 'teaching'}
+              onChange={(e) => setMode(e.target.checked ? 'teaching' : 'play')}
+            />
+            <span className="mode-toggle-switch" aria-hidden="true" />
+            <span className="mode-toggle-text">
+              <span className="mode-toggle-name">Teaching game</span>
+              <span className="mode-toggle-blurb">
+                I'll talk through your moves and mine as we go, instead of staying quiet until the end.
+              </span>
             </span>
-          </span>
-        </label>
+          </label>
 
-        <div className="strength-panel">
-          <button
-            type="button"
-            className="link-button"
-            onClick={() => setShowStrength((v) => !v)}
-          >
-            {/* Plain-language leads (opponentLevel.name is already one of the
-                app's own words — Gentle, Careless, Steady…), raw kyu trails
-                small in parens for anyone who already knows what it means.
-                What's actually decided reads at a glance, with no click
-                needed to understand it — expanding only reveals the slider
-                to change it. */}
-            Opponent: {opponentLevel.name} ({formatRank(targetKyu)}){' '}
-            {showStrength ? '▲' : '▾'}
-          </button>
-          {showStrength && (
-            <div className="strength-picker">
-              <input
-                type="range"
-                className="strength-slider"
-                min={-MAX_KYU}
-                max={-MIN_KYU}
-                step={0.5}
-                // Inverted so dragging right makes the opponent stronger,
-                // which reads more naturally than higher-kyu-is-weaker does.
-                value={-targetKyu}
-                onChange={(e) => setTargetKyu(-Number(e.target.value))}
-              />
-              <div className="strength-picker-readout">
-                <strong>{opponentLevel.name}</strong>
-                <span>
-                  {formatRank(targetKyu)} — {opponentLevel.blurb.toLowerCase()}
-                </span>
+          <div className="strength-panel">
+            <button
+              type="button"
+              className="link-button"
+              onClick={() => setShowStrength((v) => !v)}
+            >
+              {/* Plain-language leads (opponentLevel.name is already one of the
+                  app's own words — Gentle, Careless, Steady…), raw kyu trails
+                  small in parens for anyone who already knows what it means.
+                  What's actually decided reads at a glance, with no click
+                  needed to understand it — expanding only reveals the slider
+                  to change it. */}
+              Opponent: {opponentLevel.name} ({formatRank(targetKyu)}){' '}
+              {showStrength ? '▲' : '▾'}
+            </button>
+            {showStrength && (
+              <div className="strength-picker">
+                <input
+                  type="range"
+                  className="strength-slider"
+                  min={-MAX_KYU}
+                  max={-MIN_KYU}
+                  step={0.5}
+                  // Inverted so dragging right makes the opponent stronger,
+                  // which reads more naturally than higher-kyu-is-weaker does.
+                  value={-targetKyu}
+                  onChange={(e) => setTargetKyu(-Number(e.target.value))}
+                />
+                <div className="strength-picker-readout">
+                  <strong>{opponentLevel.name}</strong>
+                  <span>
+                    {formatRank(targetKyu)} — {opponentLevel.blurb.toLowerCase()}
+                  </span>
+                </div>
+                {!isMatched && (
+                  <button
+                    type="button"
+                    className="link-button"
+                    onClick={() => setTargetKyu(rank.kyu)}
+                  >
+                    Match my level ({skillLabelForKyu(rank.kyu)})
+                  </button>
+                )}
               </div>
-              {!isMatched && (
-                <button
-                  type="button"
-                  className="link-button"
-                  onClick={() => setTargetKyu(rank.kyu)}
-                >
-                  Match my level ({skillLabelForKyu(rank.kyu)})
-                </button>
-              )}
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         {starting && (
@@ -793,6 +804,7 @@ export default function PlayAI({ onExit, rank, onRankChange }) {
               state,
               mover: state.color,
               human: humanColor,
+              boardSize: format.boardSize,
               lastRemarkMove: lastRemarkMoveRef.current,
             })
             if (line) {

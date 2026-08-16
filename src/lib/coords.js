@@ -45,3 +45,24 @@ export function describeOpening(point, boardSize, moveNumber) {
     ? 'A side extension on the third line — steady, and it makes territory along the edge.'
     : 'A side extension on the fourth line, aiming at influence rather than immediate territory.'
 }
+
+/**
+ * Short, honest region name for any point on the board — "the corner",
+ * "the side", "the middle" — derived from the same distance-from-edge math
+ * `describeOpening` uses above, but valid at any point in the game, not just
+ * the opening. Used to make live commentary reference *where* something
+ * happened instead of only *what* (a fixed line of text regardless of the
+ * actual move played reads as generic no matter how varied the wording is).
+ */
+export function regionOf(point, boardSize) {
+  if (!point || !boardSize) return null
+  const fromTopBottom = Math.min(point.y, boardSize - 1 - point.y)
+  const fromSides = Math.min(point.x, boardSize - 1 - point.x)
+  const cornerReach = boardSize <= 9 ? 3 : 4
+  if (fromTopBottom < cornerReach && fromSides < cornerReach) return 'the corner'
+
+  const line = Math.min(fromTopBottom, fromSides) + 1
+  const centerFrom = boardSize <= 9 ? 4 : 5
+  if (line >= centerFrom) return 'the middle'
+  return 'the side'
+}

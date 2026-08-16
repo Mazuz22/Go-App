@@ -67,6 +67,14 @@
   --type-label: 11px;
   --rule: 1px solid var(--card-border);
 
+  /* Same "few sizes, large jump" philosophy applied to space instead of
+     type: two gaps, not a fine-grained scale. Tight is for elements that
+     are one logical unit (a label and its own note); section is the visual
+     break between genuinely distinct decisions, so grouping reads from
+     spacing itself rather than needing a rule or a heading to say so. */
+  --gap-tight: 8px;
+  --gap-section: 28px;
+
   color-scheme: dark;
   font: var(--type-body) / 1.45 system-ui, 'Segoe UI', Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
@@ -796,7 +804,7 @@ body {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 8px;
+  gap: var(--gap-tight);
   width: 100%;
   max-width: 420px;
   margin: 0 auto;
@@ -887,15 +895,26 @@ body {
   color: var(--text-muted);
 }
 
-/* A settings-style switch, deliberately unlike the level-card buttons above
-   it (which start a game the instant you tap them) — this only sets a
-   preference, so it needs to read as a toggle, not a fourth "pick me" card. */
+/* Teaching game and opponent strength are both "settings," not "choices" —
+   unlike the board-size cards above, which start a game the instant you tap
+   one. Grouped in one shared card, one section-gap below the board list, so
+   the screen visually reads as two decisions (which board; how you want to
+   play it) instead of one flat stack of five unrelated-looking controls. */
+.level-select-options {
+  margin-top: var(--gap-section);
+  display: flex;
+  flex-direction: column;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
 .mode-toggle-row {
   display: flex;
   align-items: flex-start;
   gap: 12px;
-  margin-top: 10px;
-  padding: 10px 4px;
+  padding: 14px 16px;
   cursor: pointer;
 }
 
@@ -959,17 +978,18 @@ body {
 }
 
 /* Exact opponent-strength control, replacing a row of named difficulty
-   buttons with one precise slider. */
+   buttons with one precise slider. Lives inside the same options card as
+   the toggle above it (see .level-select-options) — nested directly under
+   its own toggle button, so it needs padding but no divider of its own;
+   the one divider that matters is above the toggle button (see
+   .strength-panel), separating this whole setting from Teaching game. */
 .strength-picker {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 10px;
   width: 100%;
-  padding: 20px 18px;
-  background: var(--card-bg);
-  border: 1px solid var(--card-border);
-  border-radius: 12px;
+  padding: 0 18px 18px;
 }
 
 .strength-slider {
@@ -995,15 +1015,18 @@ body {
   color: var(--text-muted);
 }
 
-/* Strength is opt-in on the quick-start screen: a plain toggle line rather
-   than a card, so it doesn't compete with the board-size choice above it. */
 .strength-panel {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
   width: 100%;
-  margin-top: 18px;
+  border-top: var(--rule);
+}
+
+.strength-panel > .link-button {
+  width: 100%;
+  padding: 12px 16px;
+  text-align: center;
 }
 
 /* Bottom action bar, shared by the play screen */
